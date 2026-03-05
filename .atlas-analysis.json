@@ -1,0 +1,157 @@
+{
+  "projectType": "saas",
+  "projectName": "NutriFit",
+  "projectDescription": "A comprehensive nutrition management platform that connects nutritionists with patients for appointment scheduling, clinical records, and automated notifications.",
+  "theme": "almond",
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "introduction",
+              "features",
+              "getting-started"
+            ]
+          },
+          {
+            "group": "Installation",
+            "pages": [
+              "installation/requirements",
+              "installation/quick-setup",
+              "installation/manual-setup",
+              "installation/configuration"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/authentication",
+              "features/appointments",
+              "features/clinical-records",
+              "features/notifications",
+              "features/user-roles"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/admin-dashboard",
+              "guides/nutritionist-workflow",
+              "guides/patient-portal",
+              "guides/scheduling"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/database-schema",
+              "architecture/tall-stack",
+              "architecture/notifications-system"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/user",
+              "api/models/appointment",
+              "api/models/attention",
+              "api/models/personal-data"
+            ]
+          },
+          {
+            "group": "Controllers",
+            "pages": [
+              "api/controllers/admin-controller",
+              "api/controllers/nutritionist-controller",
+              "api/controllers/patient-controller",
+              "api/controllers/attention-controller"
+            ]
+          },
+          {
+            "group": "Livewire Components",
+            "pages": [
+              "api/livewire/overview",
+              "api/livewire/admin-components",
+              "api/livewire/nutritionist-components",
+              "api/livewire/patient-components"
+            ]
+          },
+          {
+            "group": "Notifications",
+            "pages": [
+              "api/notifications/overview",
+              "api/notifications/appointment-notifications",
+              "api/notifications/user-notifications"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Deployment",
+        "groups": [
+          {
+            "group": "Production",
+            "pages": [
+              "deployment/checklist",
+              "deployment/environment-setup",
+              "deployment/platforms",
+              "deployment/queue-workers"
+            ]
+          },
+          {
+            "group": "Maintenance",
+            "pages": [
+              "maintenance/commands",
+              "maintenance/scheduled-tasks",
+              "maintenance/database-backups"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-role authentication system (Admin, Nutritionist, Patient)",
+    "Intelligent appointment scheduling with availability management",
+    "Clinical attention records with PDF generation",
+    "Automated email notifications and reminders",
+    "Real-time dashboard with analytics",
+    "Nutritionist schedule configuration",
+    "Patient medical history tracking",
+    "Two-factor authentication with Laravel Fortify",
+    "Livewire reactive components with Flux UI",
+    "Queue-based notification system"
+  ],
+  "publicApiSurface": [
+    "User::isAdmin() - Check if user has admin role",
+    "User::isNutricionista() - Check if user has nutritionist role",
+    "User::isPaciente() - Check if user has patient role",
+    "User::estaHabilitadoClinicamente() - Check if user is clinically enabled",
+    "Appointment::markExpiredAppointments() - Mark expired appointments",
+    "Appointment::isExpired() - Check if appointment is expired",
+    "AdminController::dashboard() - Admin dashboard view",
+    "AdminController::users() - User management",
+    "NutricionistaController::schedules() - Schedule management",
+    "NutricionistaController::patients() - Patient list for nutritionist",
+    "NutricionistaController::appointments() - Appointment management",
+    "PacienteController::showBooking() - Patient appointment booking",
+    "AttentionController::create() - Create clinical attention record",
+    "AttentionPdfController::download() - Generate PDF report",
+    "php artisan appointments:send-reminders - Send appointment reminders",
+    "AppointmentCreatedNotification - Email notification for new appointments",
+    "AppointmentReminderNotification - Email reminder 24h before appointment",
+    "WelcomeNotification - Email notification for new users"
+  ]
+}
