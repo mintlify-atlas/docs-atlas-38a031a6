@@ -1,0 +1,400 @@
+---
+title: Features
+description: Comprehensive overview of NutriFit's nutrition management capabilities
+---
+
+## Overview
+
+NutriFit provides a complete suite of features for managing modern nutrition practices. From intelligent appointment scheduling to automated notifications, every feature is designed to reduce administrative overhead and improve patient care.
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card title="Intelligent Appointment System" icon="calendar-days">
+    Real-time availability checking with conflict prevention and automated scheduling workflows
+  </Card>
+  <Card title="Multi-Role Access Control" icon="users-gear">
+    Three distinct user roles with granular permissions for administrators, nutritionists, and patients
+  </Card>
+  <Card title="Automated Notifications" icon="bell">
+    Email confirmations, 24-hour reminders, and status updates for all appointment actions
+  </Card>
+  <Card title="Clinical Documentation" icon="file-medical">
+    Comprehensive patient records with anthropometric data, diagnoses, and treatment plans
+  </Card>
+  <Card title="PDF Report Generation" icon="file-pdf">
+    Professional nutrition reports with customizable templates using DomPDF
+  </Card>
+  <Card title="Patient History Tracking" icon="clock-rotate-left">
+    Complete longitudinal records for progress monitoring and treatment adjustments
+  </Card>
+  <Card title="Secure Authentication" icon="lock">
+    Laravel Fortify integration with email verification, 2FA, and OAuth support
+  </Card>
+  <Card title="Real-Time Dashboard" icon="chart-line">
+    Interactive statistics and metrics for administrators and nutritionists
+  </Card>
+</CardGroup>
+
+## Feature Breakdown by Role
+
+### Administrator Features
+
+Administrators have complete system oversight and management capabilities accessible via `/administrador/*` routes.
+
+#### User Management
+
+<Accordion title="Complete User Lifecycle Control">
+  - **User Creation**: Add administrators, nutritionists, and patients with role assignment
+  - **User Editing**: Update user information and permissions (routes/web.php:61-62)
+  - **Status Management**: Enable/disable user accounts without deletion (routes/web.php:63)
+  - **Role Assignment**: Assign and modify user roles with middleware enforcement
+</Accordion>
+
+#### Nutritionist Management
+
+<Accordion title="Nutritionist Oversight">
+  - **Directory View**: Complete list of all nutritionists in the system (routes/web.php:66)
+  - **Detailed Profiles**: View nutritionist schedules, appointments, and patient lists (routes/web.php:67)
+  - **Performance Metrics**: Track appointment volumes and patient satisfaction
+  - **Schedule Oversight**: Monitor availability configurations
+</Accordion>
+
+#### Patient Management
+
+<Accordion title="Patient Database">
+  - **Patient Directory**: Searchable list of all registered patients (routes/web.php:70)
+  - **Patient Details**: View complete medical history and appointment records (routes/web.php:71)
+  - **Cross-Nutritionist View**: See patient interactions across all nutritionists
+  - **Account Management**: Handle patient account issues and permissions
+</Accordion>
+
+#### Appointment Oversight
+
+<Accordion title="Global Appointment Management">
+  - **System-Wide View**: All appointments across nutritionists and patients (routes/web.php:74)
+  - **Appointment Details**: Complete appointment information and history (routes/web.php:75)
+  - **Administrative Cancellation**: Override cancellation with admin privileges (routes/web.php:76)
+  - **Conflict Resolution**: Identify and resolve scheduling conflicts
+</Accordion>
+
+#### System Administration
+
+<Accordion title="System Configuration">
+  - **Reports Dashboard**: Analytics and operational metrics (routes/web.php:79)
+  - **System Settings**: Global configuration options (routes/web.php:80)
+  - **Contact Settings**: Manage clinic contact information (routes/web.php:83)
+  - **Email Configuration**: SMTP and notification settings
+</Accordion>
+
+### Nutritionist Features
+
+Nutriționists manage their practice through `/nutricionista/*` routes with comprehensive patient care tools.
+
+#### Schedule Management
+
+<Accordion title="Dynamic Availability Configuration">
+  - **Custom Schedules**: Define working days and hours (routes/web.php:92)
+  - **Time Block Configuration**: Set appointment durations and break times
+  - **Availability Slots**: System calculates available slots automatically
+  - **Real-Time Updates**: Changes immediately reflect in booking system (routes/web.php:93)
+</Accordion>
+
+#### Patient Management
+
+<Accordion title="Comprehensive Patient Care">
+  - **Patient List**: All assigned patients with filtering (routes/web.php:96)
+  - **Patient Profiles**: Detailed view with complete history (routes/web.php:97)
+  - **Patient Data Forms**: Anthropometric data and clinical information (routes/web.php:98)
+  - **History Timeline**: Chronological view of all consultations (routes/web.php:99)
+</Accordion>
+
+#### Appointment Management
+
+<Accordion title="Full Appointment Lifecycle">
+  - **Create Appointments**: Assign appointments to patients manually (routes/web.php:102-104)
+  - **Availability Calculation**: Real-time schedule availability checking (routes/web.php:103)
+  - **Appointment List**: Filter by status, date, patient (routes/web.php:107)
+  - **Appointment Details**: Complete appointment information view (routes/web.php:108)
+  - **Cancellation**: Cancel with automated patient notification (routes/web.php:109)
+  - **Rescheduling**: Move appointments with availability validation (routes/web.php:110-111)
+</Accordion>
+
+#### Clinical Documentation
+
+<Accordion title="Patient Record Management">
+  - **Attention Forms**: Detailed consultation documentation (routes/web.php:114-117)
+  - **Anthropometric Data**: Weight, height, BMI, body composition tracking
+  - **Diagnosis Recording**: Medical diagnoses and nutritional assessments
+  - **Treatment Plans**: Customized nutrition plans and recommendations
+  - **Progress Notes**: Follow-up observations and adjustments
+  - **Edit Records**: Update existing consultation records (routes/web.php:116-117)
+</Accordion>
+
+#### PDF Generation
+
+<Accordion title="Professional Reports">
+  - **PDF Download**: Generate and download nutrition reports (routes/web.php:120)
+  - **PDF Preview**: View reports before downloading (routes/web.php:121)
+  - **Custom Templates**: Professional formatting using DomPDF (composer.json:13)
+  - **Patient Information**: Complete patient data in reports
+  - **Branding**: Clinic logo and contact information inclusion
+</Accordion>
+
+#### Profile Management
+
+<Accordion title="Account Settings">
+  - **Profile View**: Personal information and settings (routes/web.php:124-126)
+  - **Password Management**: Secure password updates (routes/web.php:127)
+  - **Notification Preferences**: Email notification settings
+  - **Professional Information**: Credentials and specializations
+</Accordion>
+
+### Patient Features
+
+Patients access self-service tools via `/paciente/*` routes for appointment management and history access.
+
+#### Appointment Booking
+
+<Accordion title="Self-Service Scheduling">
+  - **Nutritionist Selection**: Browse available nutritionists (routes/web.php:141)
+  - **Schedule Viewing**: See real-time availability (routes/web.php:142)
+  - **Instant Booking**: Reserve appointments without phone calls (routes/web.php:143)
+  - **Automatic Confirmation**: Email confirmation on successful booking
+  - **Availability Validation**: System prevents double-booking
+</Accordion>
+
+#### Appointment Management
+
+<Accordion title="Appointment Control">
+  - **My Appointments**: List all booked appointments (routes/web.php:146)
+  - **Appointment Details**: View date, time, nutritionist, status (routes/web.php:147)
+  - **Self-Cancellation**: Cancel appointments with notification (routes/web.php:148)
+  - **Status Tracking**: Real-time appointment status updates
+  - **Reminder Emails**: Automated 24-hour reminders
+</Accordion>
+
+#### Medical History Access
+
+<Accordion title="Personal Health Records">
+  - **Consultation History**: All past appointments and records (routes/web.php:155)
+  - **Nutrition Plans**: View prescribed nutrition plans
+  - **Progress Tracking**: See anthropometric data trends
+  - **PDF Downloads**: Download consultation reports (routes/web.php:151)
+  - **PDF Preview**: View reports online (routes/web.php:152)
+</Accordion>
+
+#### Account Management
+
+<Accordion title="Profile and Security">
+  - **Profile Management**: Update personal information (routes/web.php:158)
+  - **Password Changes**: Secure password updates (routes/web.php:159)
+  - **First-Time Password**: Mandatory password change on first login (routes/web.php:132-133)
+  - **Email Verification**: Required for account activation
+  - **Two-Factor Authentication**: Optional 2FA setup
+</Accordion>
+
+## Authentication & Security
+
+### Laravel Fortify Integration
+
+NutriFit uses Laravel Fortify for comprehensive authentication (composer.json:14):
+
+<Steps>
+  <Step title="Registration">
+    User registration with email verification requirement
+  </Step>
+  <Step title="Email Verification">
+    Mandatory email confirmation before system access
+  </Step>
+  <Step title="Two-Factor Authentication">
+    Optional 2FA setup for enhanced security (routes/web.php:41-50)
+  </Step>
+  <Step title="Password Management">
+    Secure password reset and update flows (routes/web.php:38)
+  </Step>
+</Steps>
+
+### OAuth Integration
+
+Google OAuth support via Laravel Socialite (composer.json:16):
+
+- **Google Login**: Single sign-on with Google accounts (routes/web.php:163)
+- **OAuth Callback**: Secure authentication flow (routes/web.php:164)
+- **Consent Management**: User consent for data access (routes/web.php:165-166)
+
+### Role-Based Access Control
+
+Middleware-enforced role separation:
+
+```php
+// Administrator routes (routes/web.php:54)
+Route::middleware(['auth', 'verified', 'role:administrador'])
+
+// Nutritionist routes (routes/web.php:88)
+Route::middleware(['auth', 'verified', 'role:nutricionista'])
+
+// Patient routes (routes/web.php:137)
+Route::middleware(['auth', 'verified', 'role:paciente', 'password.changed'])
+```
+
+## Notification System
+
+### Automated Email Notifications
+
+Asynchronous email processing via queue system (composer.json:38):
+
+<CardGroup cols={2}>
+  <Card title="Welcome Notifications" icon="envelope-open-text">
+    Sent automatically on successful registration
+  </Card>
+  <Card title="Appointment Confirmations" icon="check-circle">
+    Immediate confirmation for both patient and nutritionist
+  </Card>
+  <Card title="24-Hour Reminders" icon="clock">
+    Scheduled task sends reminders day before appointment
+  </Card>
+  <Card title="Cancellation Notices" icon="circle-xmark">
+    Automatic notification when appointments are cancelled
+  </Card>
+</CardGroup>
+
+### Queue System
+
+Email processing happens asynchronously:
+
+- **Queue Connection**: Database-driven queue (composer.json:38)
+- **Worker Process**: `php artisan queue:work` processes jobs
+- **Timeout Handling**: 120-second timeout for email delivery
+- **Failure Retry**: Automatic retry on transient failures
+
+### Email Configuration
+
+Flexible SMTP configuration:
+
+- **Development**: Mailtrap for testing (.env.example:50-57)
+- **Production**: Configurable SMTP server
+- **Customizable**: From address and name configuration
+
+## PDF Generation
+
+Professional nutrition reports using DomPDF (composer.json:13):
+
+### Report Features
+
+- **Patient Information**: Complete demographic and contact data
+- **Anthropometric Data**: Weight, height, BMI, body composition
+- **Diagnoses**: Nutritional assessments and medical diagnoses
+- **Treatment Plans**: Detailed nutrition plans and recommendations
+- **Branding**: Clinic logo and professional formatting
+- **Download & Preview**: View online or download (routes/web.php:120-121)
+
+### Access Control
+
+- **Nutritionists**: Generate and download patient reports
+- **Patients**: Download their own consultation reports
+- **Security**: Route middleware prevents unauthorized access
+
+## Public Features
+
+### Landing Pages
+
+Public-facing informational pages:
+
+- **Home Page**: Main landing page (routes/web.php:17-19)
+- **About Us**: Clinic information (routes/web.php:21-23)
+- **Contact**: Contact form and information (routes/web.php:25-27)
+- **Privacy Policy**: Data privacy information (routes/web.php:29-31)
+
+### Contact Form
+
+- **Public Submissions**: Non-authenticated users can send messages (routes/web.php:33)
+- **Admin Notification**: Messages routed to administrators
+- **Spam Protection**: Validation and rate limiting
+
+## Developer Features
+
+### Testing Framework
+
+Comprehensive testing with Pest (composer.json:28):
+
+```bash
+# Run all tests
+composer test
+
+# Run with coverage
+php artisan test --coverage
+```
+
+### Code Quality
+
+Automatic code styling with Laravel Pint (composer.json:24):
+
+- **PSR-12 Standard**: Industry-standard PHP formatting
+- **Automatic Fixing**: Run `./vendor/bin/pint` to fix style issues
+- **CI Integration**: Enforce standards in deployment pipeline
+
+### Development Scripts
+
+Convenience composer scripts (composer.json:46-58):
+
+```bash
+# Quick setup
+composer run setup
+
+# Development with all services
+composer run dev
+
+# Run tests
+composer run test
+```
+
+## Performance Features
+
+### Optimization Tools
+
+- **Route Caching**: `php artisan route:cache` for production
+- **Config Caching**: `php artisan config:cache` for faster config loading
+- **View Caching**: `php artisan view:cache` for pre-compiled templates
+- **Autoload Optimization**: `composer install --optimize-autoloader`
+
+### Database Performance
+
+- **SQLite**: Fast development database (composer.json:38)
+- **MySQL**: Production-grade performance
+- **Eloquent ORM**: Optimized query generation
+- **Query Caching**: Database-driven cache system
+
+### Asset Optimization
+
+- **Vite**: Modern build tool with HMR (package.json:14)
+- **Tree Shaking**: Remove unused CSS/JS
+- **Minification**: Compressed production assets
+- **Code Splitting**: Optimized bundle sizes
+
+## Scalability Features
+
+### Multi-Nutritionist Support
+
+- **Independent Schedules**: Each nutritionist configures their own availability
+- **Patient Distribution**: Patients can book with any nutritionist
+- **Isolated Workspaces**: Nutritionists only see their own patients by default
+- **Cross-Reference**: Administrators see all data across nutritionists
+
+### Database Flexibility
+
+- **SQLite**: Zero-configuration development
+- **MySQL**: Scalable production deployment
+- **PostgreSQL**: Compatible with minor configuration
+- **Easy Migration**: Switch databases via `.env` configuration
+
+### Deployment Options
+
+- **Traditional VPS**: Nginx + PHP-FPM
+- **Laravel Forge**: Automated deployment and management
+- **Laravel Vapor**: Serverless AWS deployment
+- **Docker**: Laravel Sail for containerized deployment (composer.json:25)
+
+<Note>
+For detailed installation and deployment instructions, see the [Getting Started](/getting-started) guide.
+</Note>

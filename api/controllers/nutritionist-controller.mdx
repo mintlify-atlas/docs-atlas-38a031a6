@@ -1,0 +1,577 @@
+---
+title: 'NutricionistaController'
+description: 'Manages nutritionist operations including schedules, appointments, and patient care'
+---
+
+## Overview
+
+The `NutricionistaController` handles all nutritionist-specific operations in NutriFit. It manages appointment scheduling, patient management, clinical history tracking, and availability configuration.
+
+**Namespace:** `App\Http\Controllers`
+
+**Middleware:** `auth`, `verified`, `role:nutricionista`
+
+**Route Prefix:** `/nutricionista`
+
+---
+
+## Dashboard
+
+### index()
+
+Displays the nutritionist dashboard with statistics and upcoming appointments.
+
+```php
+public function index()
+```
+
+**Route:** `GET /nutricionista/dashboard`
+
+**Route Name:** `nutricionista.dashboard`
+
+**Returns:** View with:
+- Appointments today (pending only)
+- Appointments this week (pending only)
+- Next appointment
+- Today's appointment schedule
+- Upcoming appointments grouped by week and date (next 4 weeks)
+- Schedule configuration status
+
+**Side Effects:** Automatically marks expired appointments
+
+**Example Statistics:**
+```php
+[
+    'appointments_today' => 3,
+    'appointments_this_week' => 12
+]
+```
+
+---
+
+## Appointment Management
+
+### appointments(Request $request)
+
+Lists all appointments with filtering options.
+
+```php
+public function appointments(Request $request)
+```
+
+**Route:** `GET /nutricionista/citas`
+
+**Route Name:** `nutricionista.appointments.index`
+
+**Query Parameters:**
+- `estado` (string, optional): Filter by state (`todos`, `pendiente`, `completada`, `cancelada`, `vencida`)
+- `search` (string, optional): Search by patient name or email
+- `fecha_desde` (date, optional): Start date filter
+- `fecha_hasta` (date, optional): End date filter
+
+**Returns:** Paginated appointments (15 per page) with quick statistics
+
+**Example:**
+```
+GET /nutricionista/citas?estado=pendiente&fecha_desde=2026-03-01
+```
+
+---
+
+### showAppointment(Appointment $appointment)
+
+Displays detailed information about a specific appointment.
+
+```php
+public function showAppointment(Appointment $appointment)
+```
+
+**Route:** `GET /nutricionista/appointments/{appointment}`
+
+**Route Name:** `nutricionista.appointments.show`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+
+**Returns:** Appointment details with patient data, state, and attention information
+
+**Authorization:** Verifies appointment belongs to authenticated nutritionist (403 if not)
+
+---
+
+### cancelAppointment(Appointment $appointment)
+
+Cancels a pending appointment.
+
+```php
+public function cancelAppointment(Appointment $appointment)
+```
+
+**Route:** `POST /nutricionista/appointments/{appointment}/cancel`
+
+**Route Name:** `nutricionista.appointments.cancel`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+
+**Returns:** Redirect with success message
+
+**Side Effects:**
+- Updates appointment state to "cancelada"
+- Sends immediate notification to nutritionist
+- Sends delayed notification to patient (20 seconds)
+
+**Validation:**
+- Appointment must belong to authenticated nutritionist
+- Appointment must be in "pendiente" state
+
+---
+
+### rescheduleForm(Appointment $appointment)
+
+Displays the rescheduling form with available time slots.
+
+```php
+public function rescheduleForm(Appointment $appointment)
+```
+
+**Route:** `GET /nutricionista/appointments/{appointment}/reschedule`
+
+**Route Name:** `nutricionista.appointments.reschedule`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+
+**Returns:** View with:
+- 4 weeks of available time slots
+- Current appointment details
+- Patient information
+
+**Validation:**
+- Appointment must belong to authenticated nutritionist
+- Appointment must be in "pendiente" state
+
+---
+
+### rescheduleAppointment(Request $request, Appointment $appointment)
+
+Processes the appointment rescheduling.
+
+```php
+public function rescheduleAppointment(Request $request, Appointment $appointment)
+```
+
+**Route:** `POST /nutricionista/appointments/{appointment}/reschedule`
+
+**Route Name:** `nutricionista.appointments.reschedule.store`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+- `date` (date, required): New appointment date (must be today or future)
+- `time` (string, required): New appointment time (HH:MM format)
+- `reschedule_reason` (string, optional): Reason for rescheduling (max 500 chars)
+
+**Returns:** Redirect with success message
+
+**Side Effects:**
+- Updates appointment start_time and end_time
+- Sends notification to patient with old/new times and reason
+
+**Validation:**
+- Checks for scheduling conflicts
+- Verifies time slot availability
+- Appointment must be in "pendiente" state
+
+**Example:**
+```php
+[
+    'date' => '2026-03-10',
+    'time' => '14:00',
+    'reschedule_reason' => 'Emergencia médica'
+]
+```
+
+---
+
+## Schedule Management
+
+### schedules()
+
+Displays the nutritionist's schedule configuration.
+
+```php
+public function schedules()
+```
+
+**Route:** `GET /nutricionista/horarios`
+
+**Route Name:** `nutricionista.schedules.index`
+
+**Returns:** View with:
+- Current schedules grouped by day of week
+- Days of week mapping
+- Consultation duration (45 minutes)
+
+---
+
+### saveSchedules(Request $request)
+
+Saves or updates the nutritionist's availability schedule.
+
+```php
+public function saveSchedules(Request $request)
+```
+
+**Route:** `POST /nutricionista/horarios`
+
+**Route Name:** `nutricionista.schedules.save`
+
+**Parameters:**
+- `time_slots` (array, optional): Array of time slot strings in format "day_time" (e.g., "1_08:00")
+
+**Returns:** Redirect with success message and total slots count
+
+**Side Effects:**
+- Deletes all existing schedules for the nutritionist
+- Creates new schedule entries grouped by consecutive time ranges
+- Each schedule has consultation_duration = 45 minutes
+
+**Example:**
+```php
+[
+    'time_slots' => [
+        '1_08:00', // Monday 8:00 AM
+        '1_08:45', // Monday 8:45 AM
+        '1_09:30', // Monday 9:30 AM
+        '2_14:00', // Tuesday 2:00 PM
+        '2_14:45'  // Tuesday 2:45 PM
+    ]
+]
+```
+
+---
+
+## Patient Management
+
+### patients()
+
+Displays the list of patients.
+
+```php
+public function patients()
+```
+
+**Route:** `GET /nutricionista/pacientes`
+
+**Route Name:** `nutricionista.patients.index`
+
+**Returns:** Patient listing view
+
+---
+
+### showPatient(User $patient)
+
+Displays detailed patient information and appointment history.
+
+```php
+public function showPatient(User $patient)
+```
+
+**Route:** `GET /nutricionista/pacientes/{patient}`
+
+**Route Name:** `nutricionista.patients.show`
+
+**Parameters:**
+- `patient` (User): Route model binding
+
+**Returns:** View with:
+- Patient personal data
+- Appointment statistics (total, completed, cancelled, pending)
+- All appointments with this nutritionist
+- Next appointment
+- Last attention data
+
+**Authorization:** Verifies patient has role "paciente" (403 if not)
+
+---
+
+### patientData(User $patient, $appointment = null)
+
+Displays the patient personal data form.
+
+```php
+public function patientData(User $patient, $appointment = null)
+```
+
+**Route:** `GET /nutricionista/pacientes/{patient}/datos/{appointment?}`
+
+**Route Name:** `nutricionista.patients.data`
+
+**Parameters:**
+- `patient` (User): Route model binding
+- `appointment` (optional): Appointment ID
+
+**Returns:** Patient data form view
+
+**Authorization:** Verifies patient has role "paciente" (404 if not)
+
+---
+
+### patientHistory(User $patient)
+
+Displays patient clinical history with progress charts.
+
+```php
+public function patientHistory(User $patient)
+```
+
+**Route:** `GET /nutricionista/pacientes/{patient}/historial`
+
+**Route Name:** `nutricionista.patients.history`
+
+**Parameters:**
+- `patient` (User): Route model binding
+
+**Returns:** View with:
+- All attention records for this patient with this nutritionist
+- Chart data for visualization (weight, BMI, body fat, measurements, etc.)
+- Progress statistics comparing first and last attention
+
+**Chart Data Includes:**
+- Weight, BMI, body fat percentage
+- Circumferences (waist, hip, neck, wrist, arms, thighs, calves)
+- Metabolic data (TMB, TDEE, target calories)
+- Ratios (WHR, WHT)
+
+**Example Progress Stats:**
+```php
+[
+    'total_attentions' => 5,
+    'first_date' => '01/01/2026',
+    'last_date' => '05/03/2026',
+    'weight' => [
+        'initial' => 85.0,
+        'current' => 78.5,
+        'change' => -6.5,
+        'percentage' => -7.6
+    ],
+    // ... more metrics
+]
+```
+
+---
+
+## Creating Appointments for Patients
+
+### createAppointment()
+
+Displays the form to assign an appointment to a patient.
+
+```php
+public function createAppointment()
+```
+
+**Route:** `GET /nutricionista/citas/asignar`
+
+**Route Name:** `nutricionista.appointments.create`
+
+**Returns:** View with:
+- List of all patients (with role validation)
+- Consultation price from nutritionist settings
+
+---
+
+### getAvailableSchedules(User $paciente)
+
+Returns available time slots for a specific patient (JSON API).
+
+```php
+public function getAvailableSchedules(User $paciente)
+```
+
+**Route:** `GET /nutricionista/citas/asignar/{paciente}/horarios`
+
+**Route Name:** `nutricionista.appointments.schedules`
+
+**Parameters:**
+- `paciente` (User): Route model binding
+
+**Returns:** JSON response with:
+- Patient information (id, name, email, initials, profile_photo)
+- 4 weeks of available time slots
+- Whether patient has previous appointments with this nutritionist
+- Error messages if patient is ineligible
+
+**Validation:**
+- Patient must have role "paciente"
+- Patient must be clinically enabled
+- Patient cannot have pending appointments with ANY nutritionist
+
+**Error Responses:**
+```json
+{
+    "error": "El paciente ya tiene una cita pendiente contigo",
+    "isOwnAppointment": true,
+    "paciente": {...},
+    "hasPreviousAppointments": true,
+    "appointment": {...}
+}
+```
+
+**Success Response:**
+```json
+{
+    "paciente": {...},
+    "weeks": [
+        {
+            "week_number": 1,
+            "start_date": "2026-03-03",
+            "start_date_formatted": "3 Mar",
+            "days": [
+                {
+                    "date": "2026-03-03",
+                    "date_formatted": "lunes, 3 de marzo",
+                    "day_name": "lunes",
+                    "day_number": "03",
+                    "is_today": false,
+                    "slots": [
+                        {"time": "08:00", "time_formatted": "08:00", "datetime": "..."}
+                    ]
+                }
+            ]
+        }
+    ],
+    "hasPreviousAppointments": false
+}
+```
+
+---
+
+### storeAppointment(Request $request)
+
+Stores a new appointment assigned by the nutritionist.
+
+```php
+public function storeAppointment(Request $request)
+```
+
+**Route:** `POST /nutricionista/citas/asignar`
+
+**Route Name:** `nutricionista.appointments.store`
+
+**Parameters:**
+- `paciente_id` (integer, required): Patient user ID
+- `appointment_date` (date, required): Date (must be today or future)
+- `appointment_time` (string, required): Time in HH:MM format
+- `appointment_type` (string, required): Type (`primera_vez`, `seguimiento`, `control`)
+- `reason` (string, optional): Appointment reason (max 500 chars)
+- `notes` (string, optional): Internal notes (max 1000 chars)
+- `price` (numeric, required): Consultation price (min 0)
+
+**Returns:** Redirect with success message and appointment details
+
+**Side Effects:**
+- Creates appointment with "pendiente" state
+- Sends confirmation notification to patient (delayed 20 seconds)
+- Sends reminder notification to nutritionist (immediate)
+
+**Validation:**
+- Patient must be clinically enabled
+- Patient cannot have pending appointments
+- Time slot must be available
+- Schedule must exist for selected day
+
+**Example:**
+```php
+[
+    'paciente_id' => 15,
+    'appointment_date' => '2026-03-10',
+    'appointment_time' => '14:00',
+    'appointment_type' => 'primera_vez',
+    'reason' => 'Evaluación nutricional inicial',
+    'notes' => 'Paciente es vegetariano',
+    'price' => 30.00
+]
+```
+
+---
+
+## Profile Management
+
+### updatePassword(Request $request)
+
+Updates the nutritionist's password.
+
+```php
+public function updatePassword(Request $request)
+```
+
+**Route:** `POST /nutricionista/perfil/contrasena`
+
+**Route Name:** `nutricionista.profile.update-password`
+
+**Parameters:**
+- `current_password` (string, required if not default): Current password
+- `password` (string, required): New password (min 8 chars)
+- `password_confirmation` (string, required): Password confirmation
+
+**Returns:** Redirect with success message
+
+**Side Effects:** Sends security notification email
+
+**Validation:**
+- Current password must match (if user has non-default password)
+- New password must be at least 8 characters
+- Password confirmation must match
+
+---
+
+## Private Helper Methods
+
+### prepareChartData($attentions)
+
+Prepares attention data for Chart.js visualization.
+
+```php
+private function prepareChartData($attentions)
+```
+
+**Parameters:**
+- `$attentions` (Collection): Collection of Attention models
+
+**Returns:** Array with chart-ready data including labels and data points for all measurements
+
+---
+
+### calculateProgressStats($attentions)
+
+Calculates progress statistics comparing first and last attention.
+
+```php
+private function calculateProgressStats($attentions)
+```
+
+**Parameters:**
+- `$attentions` (Collection): Collection of Attention models
+
+**Returns:** Array with progress metrics or null if insufficient data
+
+---
+
+## Dependencies
+
+The NutricionistaController uses:
+
+**Models:**
+- `App\Models\User`
+- `App\Models\Appointment`
+- `App\Models\NutricionistaSchedule`
+- `App\Models\Attention`
+- `App\Models\AppointmentState`
+
+**Notifications:**
+- `App\Notifications\AppointmentCancelledByNutricionista`
+- `App\Notifications\AppointmentRescheduledNotification`
+- `App\Notifications\AppointmentCreatedNotification`
+- `App\Notifications\AppointmentCreatedForPatientNotification`
+- `App\Notifications\PasswordChangedNotification`

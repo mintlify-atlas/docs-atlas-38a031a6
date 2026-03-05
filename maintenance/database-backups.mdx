@@ -1,0 +1,504 @@
+---
+title: 'Database Backups'
+description: 'Backup strategies, automation, and restoration procedures for NutriFit'
+icon: 'database'
+---
+
+## Overview
+
+Regular database backups are critical for protecting patient data, appointment records, and user information in NutriFit. This guide covers manual and automated backup strategies for both SQLite (development) and MySQL (production).
+
+---
+
+## Database Configurations
+
+NutriFit supports two database systems:
+
+| Environment | Database | Location | Configuration |
+|-------------|----------|----------|---------------|
+| **Development** | SQLite | `database/database.sqlite` | `DB_CONNECTION=sqlite` |
+| **Production** | MySQL 8.0+ | Remote server | `DB_CONNECTION=mysql` |
+
+---
+
+## SQLite Backups (Development)
+
+### Manual Backup
+
+SQLite databases are single files, making backups straightforward:
+
+```bash
+# Copy database file with timestamp
+cp database/database.sqlite database/backups/database-$(date +%Y%m%d-%H%M%S).sqlite
+```
+
+### Automated Backup Script
+
+Create a backup script at `scripts/backup-sqlite.sh`:
+
+```bash
+#!/bin/bash
+
+BACKUP_DIR="database/backups"
+DB_FILE="database/database.sqlite"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/database-$TIMESTAMP.sqlite"
+
+# Create backup directory if it doesn't exist
+mkdir -p $BACKUP_DIR
+
+# Copy database
+cp $DB_FILE $BACKUP_FILE
+
+# Compress backup
+gzip $BACKUP_FILE
+
+echo "Backup created: $BACKUP_FILE.gz"
+
+# Keep only last 30 days of backups
+find $BACKUP_DIR -name "*.gz" -mtime +30 -delete
+```
+
+Make executable and run:
+```bash
+chmod +x scripts/backup-sqlite.sh
+./scripts/backup-sqlite.sh
+```
+
+### Restore SQLite Backup
+
+```bash
+# Stop application
+php artisan down
+
+# Backup current database (safety)
+cp database/database.sqlite database/database.sqlite.pre-restore
+
+# Restore from backup
+gunzip -c database/backups/database-20260305-090000.sqlite.gz > database/database.sqlite
+
+# Restart application
+php artisan up
+```
+
+---
+
+## MySQL Backups (Production)
+
+### Manual Backup with mysqldump
+
+#### Full Database Backup
+
+```bash
+mysqldump -u root -p nutrifit > nutrifit-$(date +%Y%m%d-%H%M%S).sql
+```
+
+#### Compressed Backup
+
+```bash
+mysqldump -u root -p nutrifit | gzip > nutrifit-$(date +%Y%m%d-%H%M%S).sql.gz
+```
+
+#### Backup Specific Tables
+
+```bash
+mysqldump -u root -p nutrifit appointments attentions users > partial-backup.sql
+```
+
+#### Backup with Structure Only (No Data)
+
+```bash
+mysqldump -u root -p --no-data nutrifit > schema-only.sql
+```
+
+---
+
+### Automated MySQL Backup Script
+
+Create `scripts/backup-mysql.sh`:
+
+```bash
+#!/bin/bash
+
+# Configuration
+DB_NAME="nutrifit"
+DB_USER="root"
+DB_PASSWORD="your_password"
+BACKUP_DIR="/var/backups/nutrifit"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/nutrifit-$TIMESTAMP.sql"
+LOG_FILE="$BACKUP_DIR/backup.log"
+
+# Create backup directory
+mkdir -p $BACKUP_DIR
+
+# Perform backup
+echo "[$(date)] Starting backup..." >> $LOG_FILE
+mysqldump -u $DB_USER -p$DB_PASSWORD $DB_NAME > $BACKUP_FILE 2>> $LOG_FILE
+
+if [ $? -eq 0 ]; then
+    # Compress backup
+    gzip $BACKUP_FILE
+    echo "[$(date)] Backup completed: $BACKUP_FILE.gz" >> $LOG_FILE
+    
+    # Delete backups older than 30 days
+    find $BACKUP_DIR -name "*.sql.gz" -mtime +30 -delete
+    echo "[$(date)] Old backups cleaned" >> $LOG_FILE
+else
+    echo "[$(date)] Backup FAILED" >> $LOG_FILE
+    exit 1
+fi
+```
+
+Make executable:
+```bash
+chmod +x scripts/backup-mysql.sh
+sudo chown www-data:www-data scripts/backup-mysql.sh
+```
+
+---
+
+### Schedule Automated Backups
+
+#### Using Cron (Recommended)
+
+Add to server crontab:
+
+```bash
+# Daily backup at 2:00 AM
+0 2 * * * /var/www/nutrifit/scripts/backup-mysql.sh
+
+# Weekly backup on Sunday at 3:00 AM
+0 3 * * 0 /var/www/nutrifit/scripts/backup-mysql.sh
+```
+
+Edit crontab:
+```bash
+sudo crontab -e
+```
+
+#### Using Laravel Scheduler
+
+Create a backup command:
+
+```bash
+php artisan make:command DatabaseBackup
+```
+
+Implement in `app/Console/Commands/DatabaseBackup.php`:
+
+```php
+protected $signature = 'db:backup';
+protected $description = 'Create database backup';
+
+public function handle()
+{
+    $filename = 'backup-' . date('Y-m-d-His') . '.sql';
+    $path = storage_path('backups/' . $filename);
+    
+    // Ensure directory exists
+    if (!is_dir(storage_path('backups'))) {
+        mkdir(storage_path('backups'), 0755, true);
+    }
+    
+    // MySQL backup command
+    $command = sprintf(
+        'mysqldump -u %s -p%s %s > %s',
+        config('database.connections.mysql.username'),
+        config('database.connections.mysql.password'),
+        config('database.connections.mysql.database'),
+        $path
+    );
+    
+    exec($command, $output, $returnVar);
+    
+    if ($returnVar === 0) {
+        exec("gzip {$path}");
+        $this->info("Backup created: {$filename}.gz");
+    } else {
+        $this->error('Backup failed');
+    }
+}
+```
+
+Schedule in `routes/console.php`:
+
+```php
+Schedule::command('db:backup')->daily()->at('02:00');
+```
+
+---
+
+## Restore MySQL Backup
+
+### From Uncompressed Backup
+
+```bash
+# Put application in maintenance mode
+php artisan down
+
+# Restore database
+mysql -u root -p nutrifit < nutrifit-20260305-090000.sql
+
+# Bring application back online
+php artisan up
+```
+
+### From Compressed Backup
+
+```bash
+# Put application in maintenance mode
+php artisan down
+
+# Decompress and restore
+gunzip < nutrifit-20260305-090000.sql.gz | mysql -u root -p nutrifit
+
+# Clear caches
+php artisan optimize:clear
+
+# Bring application back online
+php artisan up
+```
+
+---
+
+## Remote Backup Storage
+
+### Using rsync (Server-to-Server)
+
+Sync backups to remote server:
+
+```bash
+rsync -avz --delete /var/backups/nutrifit/ user@backup-server:/backups/nutrifit/
+```
+
+Add to backup script:
+```bash
+# At end of backup-mysql.sh
+rsync -avz /var/backups/nutrifit/ backup@remote.server:/backups/nutrifit/
+```
+
+### Using AWS S3
+
+Install AWS CLI:
+```bash
+sudo apt-get install awscli
+aws configure
+```
+
+Upload backup:
+```bash
+aws s3 cp /var/backups/nutrifit/backup.sql.gz s3://nutrifit-backups/
+```
+
+Add to backup script:
+```bash
+aws s3 sync /var/backups/nutrifit/ s3://nutrifit-backups/ --delete
+```
+
+### Using Laravel Cloud Storage
+
+Configure S3 in `config/filesystems.php`, then:
+
+```php
+Storage::disk('s3')->put(
+    'backups/' . $filename,
+    file_get_contents($localPath)
+);
+```
+
+---
+
+## Backup Verification
+
+### Test Backup Integrity
+
+#### SQLite
+```bash
+sqlite3 database/backups/backup.sqlite "PRAGMA integrity_check;"
+```
+
+#### MySQL
+```bash
+# Restore to test database
+mysql -u root -p nutrifit_test < backup.sql
+
+# Verify table count
+mysql -u root -p nutrifit_test -e "SHOW TABLES;"
+```
+
+### Automated Verification Script
+
+```bash
+#!/bin/bash
+
+BACKUP_FILE=$1
+TEST_DB="nutrifit_test"
+
+# Create test database
+mysql -u root -p -e "DROP DATABASE IF EXISTS $TEST_DB; CREATE DATABASE $TEST_DB;"
+
+# Restore backup
+gunzip < $BACKUP_FILE | mysql -u root -p $TEST_DB
+
+if [ $? -eq 0 ]; then
+    echo "✓ Backup is valid and restorable"
+    mysql -u root -p -e "DROP DATABASE $TEST_DB;"
+else
+    echo "✗ Backup verification FAILED"
+    exit 1
+fi
+```
+
+---
+
+## Backup Retention Policy
+
+### Recommended Strategy
+
+| Frequency | Retention | Purpose |
+|-----------|-----------|----------|
+| **Daily** | 7 days | Recent recovery points |
+| **Weekly** | 4 weeks | Short-term history |
+| **Monthly** | 12 months | Long-term archives |
+| **Yearly** | Indefinite | Compliance/legal |
+
+### Implement Retention in Script
+
+```bash
+# Keep daily backups for 7 days
+find $BACKUP_DIR -name "daily-*.sql.gz" -mtime +7 -delete
+
+# Keep weekly backups for 28 days
+find $BACKUP_DIR -name "weekly-*.sql.gz" -mtime +28 -delete
+
+# Keep monthly backups for 365 days
+find $BACKUP_DIR -name "monthly-*.sql.gz" -mtime +365 -delete
+```
+
+---
+
+## Monitoring and Alerts
+
+### Email Notifications
+
+Add to backup script:
+
+```bash
+if [ $? -eq 0 ]; then
+    echo "Backup completed successfully" | mail -s "NutriFit Backup Success" admin@nutrifit.com
+else
+    echo "Backup FAILED - Immediate attention required" | mail -s "NutriFit Backup FAILED" admin@nutrifit.com
+fi
+```
+
+### Slack Notifications
+
+```bash
+curl -X POST -H 'Content-type: application/json' \
+  --data '{"text":"✓ NutriFit backup completed successfully"}' \
+  YOUR_SLACK_WEBHOOK_URL
+```
+
+---
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Encrypt Backups">
+    Encrypt sensitive patient data in backups:
+    ```bash
+    # Encrypt backup
+    gpg --symmetric --cipher-algo AES256 backup.sql.gz
+    
+    # Decrypt when needed
+    gpg --decrypt backup.sql.gz.gpg > backup.sql.gz
+    ```
+  </Accordion>
+  
+  <Accordion title="Secure Credentials">
+    Never hardcode passwords. Use MySQL configuration file:
+    
+    Create `~/.my.cnf`:
+    ```ini
+    [client]
+    user=backup_user
+    password=secure_password
+    ```
+    
+    Set permissions:
+    ```bash
+    chmod 600 ~/.my.cnf
+    ```
+  </Accordion>
+  
+  <Accordion title="Restrict Backup Access">
+    Limit who can access backups:
+    ```bash
+    sudo chown -R www-data:www-data /var/backups/nutrifit
+    sudo chmod 700 /var/backups/nutrifit
+    ```
+  </Accordion>
+  
+  <Accordion title="Test Restores Regularly">
+    Perform quarterly restore tests to verify backup integrity and team readiness.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Disaster Recovery Plan
+
+### Recovery Time Objective (RTO)
+
+Target: Restore service within **2 hours** of failure.
+
+### Recovery Steps
+
+1. **Assess the situation**
+   - Identify failure type (corruption, deletion, hardware failure)
+   - Determine last known good state
+
+2. **Prepare environment**
+   ```bash
+   php artisan down
+   ```
+
+3. **Restore database**
+   ```bash
+   mysql -u root -p nutrifit < latest-backup.sql
+   ```
+
+4. **Verify integrity**
+   ```bash
+   php artisan migrate:status
+   mysql -u root -p nutrifit -e "SELECT COUNT(*) FROM users;"
+   ```
+
+5. **Clear caches**
+   ```bash
+   php artisan optimize:clear
+   ```
+
+6. **Bring online**
+   ```bash
+   php artisan up
+   ```
+
+7. **Monitor**
+   - Check error logs
+   - Verify critical functions
+   - Monitor user reports
+
+---
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Artisan Commands" icon="terminal" href="/maintenance/commands">
+    Database migration and management commands
+  </Card>
+  <Card title="Scheduled Tasks" icon="clock" href="/maintenance/scheduled-tasks">
+    Automate backup tasks with scheduler
+  </Card>
+</CardGroup>

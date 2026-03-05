@@ -1,0 +1,508 @@
+---
+title: Appointment Scheduling System
+description: Understanding how scheduling works in NutriFit for all user roles
+---
+
+NutriFit's scheduling system manages appointments between patients and nutritionists with automatic conflict prevention, availability management, and notification handling.
+
+## System Overview
+
+The scheduling system provides:
+
+- **45-minute appointment slots**: Standard consultation duration
+- **Automatic conflict prevention**: No double-booking
+- **Real-time availability**: Instant updates when slots are booked
+- **Flexible scheduling**: Nutritionists control their own availability
+- **Multi-week visibility**: View and book up to 4 weeks ahead
+- **Automated notifications**: Email confirmations and reminders
+- **State management**: Automatic handling of expired appointments
+
+## How Scheduling Works
+
+### For Nutritionists
+
+#### Setting Availability
+
+1. **Create Schedule Blocks**:
+   - Navigate to Schedule Management
+   - Select days of the week
+   - Choose start and end times for each day
+   - System automatically creates 45-minute slots
+
+2. **Schedule Configuration**:
+   - Work with weekly recurring patterns
+   - Set different hours for different days
+   - Create multiple blocks per day (e.g., morning and afternoon)
+   - Mark specific days as unavailable
+
+3. **Time Slot Generation**:
+   - System divides schedule blocks into 45-minute slots
+   - Example: 9:00 AM - 12:00 PM becomes:
+     - 9:00 AM - 9:45 AM
+     - 9:45 AM - 10:30 AM
+     - 10:30 AM - 11:15 AM
+     - 11:15 AM - 12:00 PM
+
+<Note>
+When you update your schedule, all previous settings are replaced. Existing appointments remain unaffected.
+</Note>
+
+#### Accepting Appointments
+
+Appointments can be created two ways:
+
+1. **Patient Self-Booking**:
+   - Patients select from your available slots
+   - Receive instant notification
+   - Appointment appears in your schedule
+
+2. **Manual Appointment Creation**:
+   - You create appointments for patients
+   - Select patient from your patient list
+   - Choose available time slot
+   - Set appointment type and price
+   - Both parties receive confirmation
+
+### For Patients
+
+#### Booking Process
+
+1. **Browse Nutritionists**:
+   - View all available nutritionists
+   - See their specializations and rates
+   - Check if they have availability
+
+2. **View Availability Calendar**:
+   - See 4 weeks of available slots
+   - Calendar shows only times when nutritionist is available
+   - Past times and booked slots are hidden or grayed out
+
+3. **Select Time Slot**:
+   - Click desired date and time
+   - Choose appointment type
+   - Add reason for visit
+   - Confirm booking
+
+4. **Receive Confirmation**:
+   - Immediate on-screen confirmation
+   - Email with appointment details
+   - Appointment appears in your dashboard
+
+#### Booking Restrictions
+
+<Warning>
+Patients can only have ONE pending appointment at a time across all nutritionists.
+</Warning>
+
+This prevents:
+- Over-scheduling
+- Missed appointments
+- Scheduling conflicts
+- Resource waste
+
+To book another appointment, you must:
+- Wait until current appointment is completed, OR
+- Cancel your existing appointment
+
+### For Administrators
+
+Administrators can:
+- View all appointments system-wide
+- Cancel appointments if necessary
+- Monitor scheduling patterns
+- Generate scheduling reports
+- Resolve conflicts or issues
+
+Admins cannot:
+- Modify nutritionist schedules directly
+- Create appointments (done by nutritionists or patients)
+- Change appointment times (only cancellation allowed)
+
+## Appointment States
+
+Every appointment has a status:
+
+### Pending
+
+- **Description**: Appointment is scheduled and confirmed
+- **What it means**: Consultation is upcoming
+- **Duration**: From booking until appointment time or completion
+- **Actions available**: View, reschedule, cancel
+- **Transitions to**: Completed, cancelled, or expired
+
+### Completed
+
+- **Description**: Consultation finished and clinical data recorded
+- **What it means**: Patient was seen and records are available
+- **Duration**: Permanent state once set
+- **Actions available**: View records, download PDF
+- **Transitions to**: No further transitions
+
+### Cancelled
+
+- **Description**: Appointment was cancelled
+- **What it means**: Consultation will not take place
+- **Cancelled by**: Patient, nutritionist, or administrator
+- **Duration**: Permanent state once set
+- **Actions available**: View only
+- **Effect**: Time slot becomes available again
+
+### Expired
+
+- **Description**: Appointment time passed without completion
+- **What it means**: Consultation was missed or not recorded
+- **How it happens**: Automatic system check after end time
+- **Duration**: Permanent state once set
+- **Actions available**: View only, cannot be recovered
+- **Prevention**: Complete appointments on time
+
+<Note>
+The system runs automatic checks to mark appointments as expired when their end time passes while still in pending state.
+</Note>
+
+## Availability Logic
+
+### Determining Slot Availability
+
+A time slot is available when ALL conditions are met:
+
+1. **Nutritionist has configured schedule** for that day and time
+2. **Time is in the future** (not past)
+3. **No pending appointment exists** in that slot
+4. **Slot falls within schedule block** boundaries
+
+### How Slots Become Unavailable
+
+Slots are removed from availability when:
+
+- An appointment is booked (state: pending)
+- Time becomes past
+- Nutritionist removes that time from schedule
+
+### How Slots Become Available Again
+
+Slots return to availability when:
+
+- Pending appointment is cancelled
+- Appointment is completed (past tense)
+- Appointment expires (past tense)
+- Nutritionist adds new schedule blocks
+
+<Tip>
+Cancelled and completed appointments don't block future availability because they're in the past.
+</Tip>
+
+## Conflict Prevention
+
+### Automatic Checks
+
+The system prevents:
+
+1. **Double-Booking**: Same nutritionist, same time
+2. **Patient Over-Booking**: Patient having multiple pending appointments
+3. **Past Booking**: Scheduling appointments in the past
+4. **Outside Schedule**: Booking outside nutritionist's configured hours
+5. **Overlapping Times**: 45-minute slots overlapping
+
+### Validation Process
+
+When creating an appointment, the system:
+
+1. Checks if patient has pending appointments (ANY nutritionist)
+2. Verifies patient account is active and eligible
+3. Confirms time slot exists in nutritionist's schedule
+4. Validates slot is still available (not just booked)
+5. Ensures time is in the future
+6. Creates appointment only if all checks pass
+
+### Conflict Resolution
+
+If a conflict occurs:
+
+**Patient Already Has Appointment**:
+- Error message displayed
+- Shows existing appointment details
+- Must cancel or wait for completion
+
+**Slot No Longer Available**:
+- Error message: "Time slot no longer available"
+- Calendar refreshes with current availability
+- Select different time
+
+**Nutritionist Schedule Changed**:
+- Previously visible slots may disappear
+- System prevents booking on removed times
+- Choose from updated availability
+
+## Rescheduling
+
+### How Rescheduling Works
+
+1. **Initiated by**: Nutritionist only
+2. **Requirements**: Appointment must be in pending state
+3. **Process**:
+   - Select new date and time from available slots
+   - Optionally add reason for reschedule
+   - Confirm changes
+4. **System Actions**:
+   - Old time slot becomes available
+   - New time slot becomes booked
+   - Patient receives notification
+5. **Appointment ID**: Remains the same (not a new appointment)
+
+<Note>
+Patients cannot reschedule directly. They must cancel and create a new appointment, or request the nutritionist to reschedule.
+</Note>
+
+### Reschedule vs Cancel + Rebook
+
+**Rescheduling** (Nutritionist):
+- ✅ Keeps appointment history intact
+- ✅ Maintains clinical notes and context
+- ✅ Single notification to patient
+- ✅ Faster process
+
+**Cancel + Rebook** (Patient):
+- ❌ Creates new appointment record
+- ❌ Loses connection to cancelled appointment
+- ❌ Multiple notifications sent
+- ❌ More steps required
+
+## Notifications
+
+### Automatic Email Notifications
+
+Notifications are sent for all scheduling events:
+
+#### Appointment Created
+
+**To Patient**:
+- Confirmation of booking
+- Nutritionist information
+- Date, time, and location
+- What to prepare
+
+**To Nutritionist**:
+- New appointment alert
+- Patient information
+- Appointment type and reason
+- Added to your schedule
+
+#### Appointment Cancelled
+
+**To Cancelling Party**:
+- Immediate confirmation
+- Cancellation details
+
+**To Other Party**:
+- Notification of cancellation (with slight delay)
+- Reason if provided
+- Time slot now available
+
+#### Appointment Rescheduled
+
+**To Patient**:
+- Original time
+- New time
+- Reason for reschedule
+- Confirmation to accept
+
+**To Nutritionist**:
+- Confirmation of reschedule
+- Updated calendar entry
+
+#### Appointment Reminders
+
+**24 Hours Before**:
+- Sent to both patient and nutritionist
+- Appointment details
+- Preparation reminders
+- Cancellation policy reminder
+
+<Tip>
+Check your email regularly for appointment notifications and reminders.
+</Tip>
+
+## Calendar Display
+
+### Weekly View
+
+The system displays availability in weekly blocks:
+
+- **Week 1**: Current week (from today)
+- **Week 2**: Next week
+- **Week 3**: Two weeks ahead
+- **Week 4**: Three weeks ahead
+
+### Day Display
+
+Each day shows:
+
+- Day name (Monday, Tuesday, etc.)
+- Date (formatted in local language)
+- Available time slots for that day
+- Indication if today or past day
+
+### Time Display
+
+- **12-hour format**: 9:00 AM, 2:30 PM, etc.
+- **Local timezone**: Automatic adjustment
+- **45-minute intervals**: Standard slot duration
+
+### Visual Indicators
+
+- ✅ **Available**: Green or clickable slots
+- ⭕ **Unavailable**: Gray or disabled
+- 📅 **Today**: Highlighted
+- ⏰ **Upcoming**: Your next appointment prominently shown
+
+## Best Practices
+
+### For Nutritionists
+
+**Schedule Management**:
+- Set realistic availability based on capacity
+- Update schedule well in advance
+- Block out vacation time immediately
+- Keep consistent hours for patient convenience
+- Review and adjust based on demand
+
+**Appointment Handling**:
+- Confirm appointments 24 hours before
+- Start and end on time
+- Complete clinical records immediately
+- Reschedule if necessary, don't cancel
+- Communicate proactively with patients
+
+**Avoiding Conflicts**:
+- Don't modify schedule with pending appointments nearby
+- Leave buffer time between appointments
+- Account for administrative tasks
+- Consider commute time for in-person appointments
+
+### For Patients
+
+**Booking Smart**:
+- Book appointments well in advance
+- Choose times you can reliably attend
+- Consider travel time to location
+- Only book when you're committed
+- Read confirmation email carefully
+
+**Managing Appointments**:
+- Cancel as early as possible if needed
+- Check reminders 24 hours before
+- Arrive/log in on time
+- Prepare questions beforehand
+- Complete any pre-appointment requirements
+
+**Communication**:
+- Respond to reschedule notifications promptly
+- Contact nutritionist if running late
+- Inform of any health changes before appointment
+- Follow up on missed appointments
+
+### For Administrators
+
+**Monitoring**:
+- Track no-show rates
+- Monitor booking patterns
+- Identify scheduling bottlenecks
+- Review expired appointments
+
+**Support**:
+- Help resolve scheduling conflicts
+- Assist with technical issues
+- Ensure nutritionist schedules are optimal
+- Coordinate system maintenance
+
+## Technical Details
+
+### Appointment Duration
+
+- **Standard**: 45 minutes
+- **Configurable**: Per nutritionist settings
+- **Consistent**: All slots use same duration
+
+### Schedule Storage
+
+- **Weekly patterns**: Recurring schedule saved by day of week
+- **Specific dates**: Individual appointments linked to dates
+- **Time zones**: Server time with local display
+
+### Availability Calculation
+
+```
+Available = 
+  Schedule EXISTS for (day_of_week, time) AND
+  time IS future AND
+  NOT EXISTS pending appointment at (date, time) AND
+  nutricionista IS active
+```
+
+### State Transitions
+
+Appointment state flow:
+
+```
+Created → Pending → Completed
+                 → Cancelled
+                 → Expired
+```
+
+No reverse transitions allowed (states are final).
+
+## Troubleshooting
+
+### "No available slots" showing
+
+**Possible causes**:
+- Nutritionist hasn't configured schedule
+- All slots are booked
+- Viewing past weeks
+- Schedule was recently changed
+
+**Solutions**:
+- Try different weeks
+- Choose another nutritionist
+- Contact nutritionist directly
+- Check back later for cancellations
+
+### Cannot book - "already have appointment"
+
+**Cause**: System restriction (one pending appointment per patient)
+
+**Solution**:
+- Check your dashboard for existing appointment
+- Complete or cancel current appointment
+- Then book new appointment
+
+### Appointment not showing after booking
+
+**Solutions**:
+- Refresh your dashboard
+- Check email confirmation
+- Look in "My Appointments" section
+- Verify booking was completed (confirmation screen)
+- Contact support if still missing
+
+### Time zone issues
+
+**Prevention**:
+- System uses server time consistently
+- Display adjusts to local timezone
+- Confirm time in notification email
+- Verify timezone in profile settings
+
+## Summary
+
+The NutriFit scheduling system balances flexibility and control:
+
+- **Nutritionists** control their availability
+- **Patients** book from available slots
+- **System** prevents conflicts automatically
+- **Notifications** keep everyone informed
+- **States** track appointment lifecycle
+- **Administrators** monitor and support
+
+Understanding how scheduling works helps you make the most of the platform and avoid common issues.

@@ -1,0 +1,247 @@
+---
+title: 'Attention'
+description: 'Clinical attention records for completed NutriFit appointments'
+---
+
+## Overview
+
+The `Attention` model represents clinical attention records created when a nutritionist completes an appointment with a patient. It stores the diagnosis, recommendations, and links to anthropometric measurements.
+
+**Namespace:** `App\Models\Attention`
+
+**Extends:** `Illuminate\Database\Eloquent\Model`
+
+**Table:** `attentions`
+
+## Fillable Attributes
+
+<ParamField path="appointment_id" type="integer" required>
+  Foreign key to the Appointment model this attention record belongs to
+</ParamField>
+
+<ParamField path="paciente_id" type="integer" required>
+  Foreign key to the User model representing the patient (denormalized for quick access)
+</ParamField>
+
+<ParamField path="nutricionista_id" type="integer" required>
+  Foreign key to the User model representing the nutritionist (denormalized for quick access)
+</ParamField>
+
+<ParamField path="diagnosis" type="text" required>
+  The nutritionist's clinical diagnosis for the patient
+</ParamField>
+
+<ParamField path="recommendations" type="text" required>
+  Treatment recommendations, dietary plans, and follow-up instructions
+</ParamField>
+
+## Relationships
+
+### BelongsTo
+
+<ResponseField name="appointment()" type="BelongsTo">
+  Returns the appointment this attention record is associated with (Appointment model)
+  
+  ```php
+  $attention->appointment->start_time; // When the appointment occurred
+  ```
+</ResponseField>
+
+<ResponseField name="paciente()" type="BelongsTo">
+  Returns the patient user (User model)
+  
+  ```php
+  $attention->paciente->name; // Patient's full name
+  $attention->paciente->personalData->age; // Patient's age
+  ```
+</ResponseField>
+
+<ResponseField name="nutricionista()" type="BelongsTo">
+  Returns the nutritionist user (User model)
+  
+  ```php
+  $attention->nutricionista->name; // Nutritionist who provided care
+  ```
+</ResponseField>
+
+### HasOne
+
+<ResponseField name="attentionData()" type="HasOne">
+  Returns the anthropometric measurements taken during this attention (AttentionData model)
+  
+  Includes measurements such as:
+  - Weight (peso)
+  - Height (talla)
+  - BMI (imc)
+  - Waist circumference (circunferencia_cintura)
+  - Hip circumference (circunferencia_cadera)
+  - Body fat percentage (porcentaje_grasa)
+  - Muscle mass (masa_muscular)
+  
+  ```php
+  $measurements = $attention->attentionData;
+  if ($measurements) {
+      echo "Weight: {$measurements->peso} kg";
+      echo "BMI: {$measurements->imc}";
+  }
+  ```
+</ResponseField>
+
+## Usage Examples
+
+### Creating an Attention Record
+
+```php
+use App\Models\Attention;
+use App\Models\AttentionData;
+
+// Create the attention record
+$attention = Attention::create([
+    'appointment_id' => $appointment->id,
+    'paciente_id' => $appointment->paciente_id,
+    'nutricionista_id' => $appointment->nutricionista_id,
+    'diagnosis' => 'Sobrepeso grado I. Resistencia a la insulina.',
+    'recommendations' => 'Dieta hipocalórica 1800 kcal/día. Incrementar actividad física a 30 min diarios. Control en 4 semanas.',
+]);
+
+// Add anthropometric measurements
+AttentionData::create([
+    'attention_id' => $attention->id,
+    'peso' => 78.5,
+    'talla' => 165,
+    'imc' => 28.8,
+    'circunferencia_cintura' => 92,
+    'circunferencia_cadera' => 105,
+    'porcentaje_grasa' => 32.5,
+    'masa_muscular' => 48.2,
+]);
+```
+
+### Retrieving Attention Records
+
+```php
+// Get all attention records for a patient
+$patientHistory = Attention::where('paciente_id', $patient->id)
+    ->with(['nutricionista.personalData', 'attentionData', 'appointment'])
+    ->orderBy('created_at', 'desc')
+    ->get();
+
+foreach ($patientHistory as $attention) {
+    echo "Date: " . $attention->appointment->start_time->format('d/m/Y') . "\n";
+    echo "Nutritionist: " . $attention->nutricionista->name . "\n";
+    echo "Diagnosis: " . $attention->diagnosis . "\n";
+    echo "---\n";
+}
+```
+
+### Get Attention for Specific Appointment
+
+```php
+$appointment = Appointment::with('attention.attentionData')->find(1);
+
+if ($appointment->attention) {
+    // Appointment has been completed with attention record
+    $attention = $appointment->attention;
+    
+    echo "Diagnosis: {$attention->diagnosis}\n";
+    echo "Recommendations: {$attention->recommendations}\n";
+    
+    if ($attention->attentionData) {
+        echo "Weight: {$attention->attentionData->peso} kg\n";
+        echo "BMI: {$attention->attentionData->imc}\n";
+    }
+} else {
+    // Appointment hasn't been attended yet
+    echo "This appointment is still pending.";
+}
+```
+
+### Displaying Patient Progress
+
+```php
+// Get patient's attention history with measurements
+$attentions = Attention::where('paciente_id', $patient->id)
+    ->with('attentionData')
+    ->orderBy('created_at')
+    ->get();
+
+// Track weight progress
+$weightHistory = $attentions->map(function ($attention) {
+    return [
+        'date' => $attention->created_at->format('Y-m-d'),
+        'weight' => $attention->attentionData?->peso,
+        'bmi' => $attention->attentionData?->imc,
+    ];
+})->filter(fn($record) => $record['weight'] !== null);
+
+// Calculate progress
+$firstWeight = $weightHistory->first()['weight'];
+$lastWeight = $weightHistory->last()['weight'];
+$weightLoss = $firstWeight - $lastWeight;
+
+echo "Total weight loss: {$weightLoss} kg";
+```
+
+### Nutritionist Dashboard Statistics
+
+```php
+// Get attention count for a nutritionist
+$totalAttentions = Attention::where('nutricionista_id', $nutritionist->id)->count();
+
+// Get recent attentions
+$recentAttentions = Attention::where('nutricionista_id', $nutritionist->id)
+    ->with(['paciente.personalData', 'appointment'])
+    ->orderBy('created_at', 'desc')
+    ->limit(10)
+    ->get();
+
+// Get attentions this month
+$monthlyAttentions = Attention::where('nutricionista_id', $nutritionist->id)
+    ->whereMonth('created_at', now()->month)
+    ->whereYear('created_at', now()->year)
+    ->count();
+```
+
+### Validation Before Creating
+
+```php
+use App\Models\Appointment;
+use App\Models\Attention;
+
+$appointment = Appointment::find($appointmentId);
+
+// Check if appointment is eligible for attention
+if ($appointment->attention) {
+    return back()->withErrors('Esta cita ya tiene una atención registrada.');
+}
+
+if ($appointment->appointmentState->name !== 'pendiente') {
+    return back()->withErrors('Solo se pueden atender citas pendientes.');
+}
+
+if ($appointment->start_time > now()) {
+    return back()->withErrors('No se puede registrar atención para citas futuras.');
+}
+
+// Proceed with creating attention
+```
+
+### Searching and Filtering
+
+```php
+// Search by diagnosis keywords
+$attentions = Attention::where('diagnosis', 'LIKE', '%diabetes%')
+    ->orWhere('diagnosis', 'LIKE', '%resistencia a la insulina%')
+    ->with(['paciente', 'nutricionista'])
+    ->get();
+
+// Filter by date range
+$attentions = Attention::whereBetween('created_at', [$startDate, $endDate])
+    ->where('nutricionista_id', $nutritionist->id)
+    ->get();
+
+// Get attentions with specific measurement criteria
+$attentions = Attention::whereHas('attentionData', function ($query) {
+    $query->where('imc', '>', 30); // BMI > 30 (obesity)
+})->get();
+```

@@ -1,0 +1,164 @@
+---
+title: 'Livewire Components Overview'
+description: 'Understanding Livewire components in NutriFit and their role in the application'
+---
+
+## What is Livewire?
+
+Livewire is a full-stack framework for Laravel that makes building dynamic interfaces simple, without leaving the comfort of Laravel. It enables you to build reactive, dynamic interfaces using server-side rendering without writing JavaScript.
+
+## Why Livewire in NutriFit?
+
+NutriFit uses Livewire components to provide:
+
+- **Reactive User Interfaces**: Real-time updates without full page reloads
+- **Server-Side Logic**: All business logic stays in PHP/Laravel
+- **Simplified Development**: No need for separate API endpoints or complex JavaScript frameworks
+- **Better Performance**: Efficient partial page updates using AJAX
+- **Security**: Server-side validation and authorization
+
+## Component Structure
+
+All Livewire components in NutriFit follow a consistent structure:
+
+### File Organization
+
+```
+app/Livewire/
+├── Admin/              # Administrator components
+│   ├── SystemSettings.php
+│   └── UsersTable.php
+├── Nutricionista/      # Nutritionist components
+│   ├── NutricionistaProfile.php
+│   ├── PatientDataForm.php
+│   └── PatientsTable.php
+├── Paciente/           # Patient components
+│   └── AppointmentList.php
+└── Settings/           # Shared settings components
+```
+
+### Component Anatomy
+
+Each Livewire component consists of:
+
+1. **PHP Class** (`app/Livewire/[Role]/ComponentName.php`)
+   - Properties: Public properties that are automatically available in the view
+   - Methods: Actions that can be triggered from the view
+   - Lifecycle hooks: `mount()`, `updated()`, etc.
+   - Validation rules and messages
+
+2. **Blade View** (`resources/views/livewire/[role]/component-name.blade.php`)
+   - HTML markup with Livewire directives
+   - Data binding using `wire:model`
+   - Event handling with `wire:click`, `wire:submit`, etc.
+
+## Common Patterns
+
+### Property Binding
+
+Components use public properties that are automatically synchronized between the server and the client:
+
+```php
+public string $search = '';
+public string $email = '';
+public ?int $user_id = null;
+```
+
+### Validation
+
+All components implement server-side validation:
+
+```php
+protected $rules = [
+    'email' => 'required|email|max:255',
+    'phone' => 'nullable|string|max:10',
+];
+
+protected $messages = [
+    'email.required' => 'El correo es obligatorio.',
+    'email.email' => 'El correo debe ser válido.',
+];
+```
+
+### Pagination
+
+Table components use the `WithPagination` trait:
+
+```php
+use Livewire\WithPagination;
+
+class UsersTable extends Component
+{
+    use WithPagination;
+    
+    public function render()
+    {
+        $users = User::paginate(15);
+        return view('livewire.admin.users-table', compact('users'));
+    }
+}
+```
+
+### File Uploads
+
+Components handling file uploads use the `WithFileUploads` trait:
+
+```php
+use Livewire\WithFileUploads;
+
+class NutricionistaProfile extends Component
+{
+    use WithFileUploads;
+    
+    public $profile_photo;
+    
+    protected $rules = [
+        'profile_photo' => 'nullable|image|max:2048',
+    ];
+}
+```
+
+## Role-Based Components
+
+NutriFit organizes components by user role:
+
+- **Admin Components**: System configuration and user management
+- **Nutritionist Components**: Patient management, profiles, and forms
+- **Patient Components**: Appointment viewing and personal data
+
+## Query String Parameters
+
+Many components persist state in the URL using query strings:
+
+```php
+protected $queryString = [
+    'search' => ['except' => ''],
+    'page' => ['except' => 1],
+];
+```
+
+This enables:
+- Bookmarkable filtered views
+- Browser back/forward navigation
+- Shareable links with filters applied
+
+## Real-Time Features
+
+Components can listen to and emit events:
+
+```php
+protected $listeners = ['userUpdated' => '$refresh'];
+
+public function someMethod()
+{
+    $this->dispatch('userUpdated');
+}
+```
+
+## Next Steps
+
+Explore the specific component documentation:
+
+- [Admin Components](/api/livewire/admin-components) - System settings and user management
+- [Nutritionist Components](/api/livewire/nutritionist-components) - Patient and profile management
+- [Patient Components](/api/livewire/patient-components) - Appointment viewing and tracking

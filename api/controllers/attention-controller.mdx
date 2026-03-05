@@ -1,0 +1,469 @@
+---
+title: 'AttentionController'
+description: 'Manages clinical attention records including anthropometric data and nutrition plans'
+---
+
+## Overview
+
+The `AttentionController` handles the creation and management of clinical attention records. It processes anthropometric measurements, calculates nutritional metrics, and stores comprehensive patient evaluation data. This is the core controller for documenting nutritionist-patient consultations.
+
+**Namespace:** `App\Http\Controllers`
+
+**Middleware:** `auth`, `verified`, `role:nutricionista`
+
+**Route Prefix:** `/nutricionista`
+
+---
+
+## Creating Attention Records
+
+### create(Appointment $appointment)
+
+Displays the form to create a new clinical attention record.
+
+```php
+public function create(Appointment $appointment)
+```
+
+**Route:** `GET /nutricionista/citas/{appointment}/atender`
+
+**Route Name:** `nutricionista.attentions.create`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+
+**Returns:** Attention creation form view with appointment and patient data
+
+**Validation:**
+- Appointment must belong to authenticated nutritionist (403 if not)
+- Appointment must be in "pendiente" state
+- Patient must have personal data (redirects to data form if missing)
+
+**Redirects:**
+- If appointment not "pendiente": redirect to appointment show with error
+- If patient lacks personal data: redirect to patient data form with warning
+
+---
+
+### store(Request $request, Appointment $appointment)
+
+Stores a new clinical attention record with anthropometric data.
+
+```php
+public function store(Request $request, Appointment $appointment)
+```
+
+**Route:** `POST /nutricionista/citas/{appointment}/atender`
+
+**Route Name:** `nutricionista.attentions.store`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+- Request body with extensive validation (see below)
+
+**Returns:** Redirect to appointment show with success message
+
+**Side Effects:**
+- Creates `Attention` record
+- Creates `AttentionData` record
+- Updates appointment state to "completada"
+- Sends `AttentionCompletedNotification` to patient
+
+**Transaction:** Uses database transaction (rolls back on error)
+
+---
+
+## Request Parameters (Create/Update)
+
+### Basic Measurements (Required)
+
+```php
+[
+    'weight' => 'required|numeric|min:20|max:300',        // kg
+    'height' => 'required|numeric|min:100|max:250',       // cm
+    'bmi' => 'required|numeric|min:10|max:60'             // calculated
+]
+```
+
+### Body Circumferences (Required)
+
+```php
+[
+    'waist' => 'required|numeric|min:30|max:200',         // cm
+    'hip' => 'required|numeric|min:30|max:200',           // cm
+    'neck' => 'required|numeric|min:20|max:100',          // cm
+    'wrist' => 'required|numeric|min:10|max:30',          // cm
+    'arm_contracted' => 'required|numeric|min:15|max:100', // cm
+    'arm_relaxed' => 'required|numeric|min:15|max:100',   // cm
+    'thigh' => 'required|numeric|min:30|max:150',         // cm
+    'calf' => 'required|numeric|min:20|max:100'           // cm
+]
+```
+
+### Activity & Goal (Required)
+
+```php
+[
+    'activity_level' => 'required|in:sedentary,light,moderate,active,very_active',
+    'nutrition_goal' => 'required|in:deficit,maintenance,surplus'
+]
+```
+
+**Activity Levels:**
+- `sedentary` - Little to no exercise
+- `light` - Light exercise 1-3 days/week
+- `moderate` - Moderate exercise 3-5 days/week
+- `active` - Heavy exercise 6-7 days/week
+- `very_active` - Very heavy exercise, physical job, or training twice/day
+
+**Nutrition Goals:**
+- `deficit` - Weight loss (caloric deficit)
+- `maintenance` - Weight maintenance
+- `surplus` - Weight gain (caloric surplus)
+
+### Calculated Body Composition (Optional)
+
+```php
+[
+    'body_fat' => 'nullable|numeric|min:0|max:100',       // %
+    'tmb' => 'nullable|numeric|min:500|max:5000',         // kcal (Basal Metabolic Rate)
+    'tdee' => 'nullable|numeric|min:500|max:10000',       // kcal (Total Daily Energy Expenditure)
+    'whr' => 'nullable|numeric|min:0.5|max:1.5',          // Waist-to-Hip Ratio
+    'wht' => 'nullable|numeric|min:0.3|max:1.0',          // Waist-to-Height Ratio
+    'frame_index' => 'nullable|numeric|min:5|max:20'      // Body frame size
+]
+```
+
+### Macronutrient Plan (Optional)
+
+```php
+[
+    'target_calories' => 'nullable|numeric|min:500|max:10000',   // kcal/day
+    'protein_grams' => 'nullable|numeric|min:0|max:1000',        // g/day
+    'fat_grams' => 'nullable|numeric|min:0|max:1000',            // g/day
+    'carbs_grams' => 'nullable|numeric|min:0|max:2000',          // g/day
+    'protein_percentage' => 'nullable|numeric|min:0|max:100',    // %
+    'fat_percentage' => 'nullable|numeric|min:0|max:100',        // %
+    'carbs_percentage' => 'nullable|numeric|min:0|max:100'       // %
+]
+```
+
+### Food Equivalents (Optional)
+
+```php
+[
+    'eq_cereales' => 'nullable|numeric|min:0|max:50',         // portions/day
+    'eq_verduras' => 'nullable|numeric|min:0|max:50',         // portions/day
+    'eq_frutas' => 'nullable|numeric|min:0|max:50',           // portions/day
+    'eq_lacteo' => 'nullable|numeric|min:0|max:50',           // portions/day
+    'eq_animal' => 'nullable|numeric|min:0|max:50',           // portions/day
+    'eq_aceites' => 'nullable|numeric|min:0|max:50',          // portions/day
+    'eq_grasas_prot' => 'nullable|numeric|min:0|max:50',      // portions/day
+    'eq_leguminosas' => 'nullable|numeric|min:0|max:50',      // portions/day
+    'total_calories_equivalents' => 'nullable|numeric|min:0|max:10000' // total kcal
+]
+```
+
+### Clinical Notes (Required)
+
+```php
+[
+    'diagnosis' => 'required|string|max:5000',              // Clinical diagnosis
+    'recommendations' => 'required|string|max:5000'         // Nutritional recommendations
+]
+```
+
+---
+
+## Example Request Body
+
+```json
+{
+    "weight": 78.5,
+    "height": 170,
+    "bmi": 27.2,
+    "waist": 88,
+    "hip": 100,
+    "neck": 36,
+    "wrist": 16.5,
+    "arm_contracted": 32,
+    "arm_relaxed": 30,
+    "thigh": 58,
+    "calf": 36,
+    "activity_level": "moderate",
+    "nutrition_goal": "deficit",
+    "body_fat": 28.5,
+    "tmb": 1650,
+    "tdee": 2280,
+    "whr": 0.88,
+    "wht": 0.52,
+    "frame_index": 9.7,
+    "target_calories": 1800,
+    "protein_grams": 135,
+    "fat_grams": 50,
+    "carbs_grams": 180,
+    "protein_percentage": 30,
+    "fat_percentage": 25,
+    "carbs_percentage": 45,
+    "eq_cereales": 6,
+    "eq_verduras": 3,
+    "eq_frutas": 2,
+    "eq_lacteo": 2,
+    "eq_animal": 3,
+    "eq_aceites": 2,
+    "eq_grasas_prot": 1,
+    "eq_leguminosas": 1,
+    "total_calories_equivalents": 1820,
+    "diagnosis": "Paciente presenta sobrepeso con IMC de 27.2. Composición corporal muestra 28.5% de grasa corporal. Relación cintura-cadera dentro de rango normal.",
+    "recommendations": "1. Seguir plan alimenticio de 1800 kcal/día\n2. Aumentar actividad física a 150 min/semana\n3. Hidratación: 2-2.5L agua/día\n4. Control en 4 semanas\n5. Evitar alimentos procesados"
+}
+```
+
+---
+
+## Updating Attention Records
+
+### edit(Appointment $appointment)
+
+Displays the form to edit an existing attention record.
+
+```php
+public function edit(Appointment $appointment)
+```
+
+**Route:** `GET /nutricionista/citas/{appointment}/editar-atencion`
+
+**Route Name:** `nutricionista.attentions.edit`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+
+**Returns:** Attention edit form view with existing data
+
+**Validation:**
+- Appointment must belong to authenticated nutritionist (403 if not)
+- Appointment must have an attention record
+
+**Redirects:**
+- If no attention exists: redirect to appointment show with error
+
+---
+
+### update(Request $request, Appointment $appointment)
+
+Updates an existing clinical attention record.
+
+```php
+public function update(Request $request, Appointment $appointment)
+```
+
+**Route:** `PUT /nutricionista/citas/{appointment}/editar-atencion`
+
+**Route Name:** `nutricionista.attentions.update`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+- Request body with same validation as `store()` method
+
+**Returns:** Redirect to appointment show with success message
+
+**Side Effects:**
+- Updates `Attention` record (diagnosis, recommendations)
+- Updates `AttentionData` record (all measurements)
+- Does NOT change appointment state
+- Does NOT send notifications
+
+**Transaction:** Uses database transaction (rolls back on error)
+
+**Validation:**
+- Appointment must belong to authenticated nutritionist (403 if not)
+- Appointment must have an existing attention record
+- Same validation rules as create
+
+---
+
+## Validation Error Messages
+
+The controller provides comprehensive Spanish error messages:
+
+```php
+[
+    'weight.required' => 'El peso es obligatorio.',
+    'weight.min' => 'El peso debe ser al menos 20 kg.',
+    'weight.max' => 'El peso no puede superar 300 kg.',
+    'height.required' => 'La altura es obligatoria.',
+    'height.min' => 'La altura debe ser al menos 100 cm.',
+    'height.max' => 'La altura no puede superar 250 cm.',
+    'waist.required' => 'La medida de cintura es obligatoria.',
+    'hip.required' => 'La medida de cadera es obligatoria.',
+    'neck.required' => 'La medida de cuello es obligatoria.',
+    'wrist.required' => 'La medida de muñeca es obligatoria.',
+    'arm_contracted.required' => 'La medida de brazo contraído es obligatoria.',
+    'arm_relaxed.required' => 'La medida de brazo relajado es obligatoria.',
+    'thigh.required' => 'La medida de pierna es obligatoria.',
+    'calf.required' => 'La medida de pantorrilla es obligatoria.',
+    'bmi.required' => 'El IMC es obligatorio.',
+    'activity_level.required' => 'El nivel de actividad física es obligatorio.',
+    'activity_level.in' => 'El nivel de actividad física seleccionado no es válido.',
+    'nutrition_goal.required' => 'El objetivo nutricional es obligatorio.',
+    'nutrition_goal.in' => 'El objetivo nutricional seleccionado no es válido.',
+    'body_fat.min' => 'El porcentaje de grasa corporal no puede ser negativo.',
+    'body_fat.max' => 'El porcentaje de grasa corporal no puede superar 100%.',
+    'diagnosis.required' => 'El diagnóstico es obligatorio.',
+    'diagnosis.max' => 'El diagnóstico no puede superar 5000 caracteres.',
+    'recommendations.required' => 'Las recomendaciones son obligatorias.',
+    'recommendations.max' => 'Las recomendaciones no pueden superar 5000 caracteres.'
+]
+```
+
+---
+
+## Database Structure
+
+### Attention Table
+
+Stores the main attention record:
+
+```php
+[
+    'id' => 'Primary key',
+    'appointment_id' => 'Foreign key to appointments',
+    'paciente_id' => 'Foreign key to users (patient)',
+    'nutricionista_id' => 'Foreign key to users (nutritionist)',
+    'diagnosis' => 'Clinical diagnosis (text)',
+    'recommendations' => 'Nutritional recommendations (text)',
+    'created_at' => 'Timestamp',
+    'updated_at' => 'Timestamp'
+]
+```
+
+### AttentionData Table
+
+Stores all anthropometric and nutritional data:
+
+```php
+[
+    'id' => 'Primary key',
+    'attention_id' => 'Foreign key to attentions',
+    'weight' => 'decimal(5,2)',
+    'height' => 'decimal(5,2)',
+    'bmi' => 'decimal(4,2)',
+    'waist' => 'decimal(5,2)',
+    'hip' => 'decimal(5,2)',
+    'neck' => 'decimal(5,2)',
+    'wrist' => 'decimal(5,2)',
+    'arm_contracted' => 'decimal(5,2)',
+    'arm_relaxed' => 'decimal(5,2)',
+    'thigh' => 'decimal(5,2)',
+    'calf' => 'decimal(5,2)',
+    'activity_level' => 'enum',
+    'nutrition_goal' => 'enum',
+    'body_fat' => 'decimal(5,2)',
+    'tmb' => 'integer',
+    'tdee' => 'integer',
+    'whr' => 'decimal(4,3)',
+    'wht' => 'decimal(4,3)',
+    'frame_index' => 'decimal(4,2)',
+    'target_calories' => 'integer',
+    'protein_grams' => 'decimal(6,2)',
+    'fat_grams' => 'decimal(6,2)',
+    'carbs_grams' => 'decimal(6,2)',
+    'protein_percentage' => 'decimal(5,2)',
+    'fat_percentage' => 'decimal(5,2)',
+    'carbs_percentage' => 'decimal(5,2)',
+    'eq_cereales' => 'decimal(4,2)',
+    'eq_verduras' => 'decimal(4,2)',
+    'eq_frutas' => 'decimal(4,2)',
+    'eq_lacteo' => 'decimal(4,2)',
+    'eq_animal' => 'decimal(4,2)',
+    'eq_aceites' => 'decimal(4,2)',
+    'eq_grasas_prot' => 'decimal(4,2)',
+    'eq_leguminosas' => 'decimal(4,2)',
+    'total_calories_equivalents' => 'integer',
+    'created_at' => 'timestamp',
+    'updated_at' => 'timestamp'
+]
+```
+
+---
+
+## Business Logic
+
+### Appointment State Transition
+
+When an attention is created:
+1. Appointment state changes from "pendiente" to "completada"
+2. This is permanent (cannot revert to "pendiente")
+3. Updating an attention does NOT change the appointment state
+
+### Patient Data Prerequisite
+
+Before creating an attention:
+- Patient must have `PersonalData` record (gender, birth_date)
+- If missing, nutritionist is redirected to complete patient data first
+- This ensures age and gender are available for calculations
+
+### Notification Flow
+
+Only on **create** (not update):
+1. Transaction commits successfully
+2. Attention and AttentionData are created
+3. Appointment state updated to "completada"
+4. `AttentionCompletedNotification` sent to patient
+5. Patient can view completed attention in their history
+
+---
+
+## Error Handling
+
+### Database Transaction
+
+Both `store()` and `update()` use transactions:
+
+```php
+try {
+    DB::beginTransaction();
+    
+    // Create/update attention
+    // Create/update attention data
+    // Update appointment state (only on create)
+    
+    DB::commit();
+    
+    // Send notification (only on create)
+} catch (\Exception $e) {
+    DB::rollBack();
+    
+    return redirect()
+        ->back()
+        ->withInput()
+        ->with('error', 'Ocurrió un error: ' . $e->getMessage());
+}
+```
+
+### Common Error Scenarios
+
+1. **Appointment not pending:** "Esta cita no puede ser atendida. Estado actual: {estado}"
+2. **Missing patient data:** Redirects to patient data form with warning
+3. **Unauthorized access:** 403 Forbidden
+4. **Validation failure:** Returns with validation errors
+5. **Database error:** Transaction rollback with error message
+
+---
+
+## Dependencies
+
+The AttentionController uses:
+
+**Models:**
+- `App\Models\Appointment`
+- `App\Models\Attention`
+- `App\Models\AttentionData`
+- `App\Models\AppointmentState`
+
+**Notifications:**
+- `App\Notifications\AttentionCompletedNotification`
+
+**Other:**
+- `Illuminate\Support\Facades\DB` for transactions
+- `Illuminate\Http\Request` for validation

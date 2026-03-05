@@ -1,0 +1,547 @@
+---
+title: 'User Roles & Permissions'
+description: 'Complete guide to role-based access control including Admin, Nutritionist, and Patient roles with permissions and dashboards'
+icon: 'users'
+---
+
+## Overview
+
+NutriFit implements a role-based access control (RBAC) system with three distinct user roles, each with specific permissions and dedicated dashboards.
+
+<Note>
+Roles are enforced through middleware and route groups, ensuring secure access to features based on user type.
+</Note>
+
+## User Roles
+
+<CardGroup cols={3}>
+  <Card title="Administrator" icon="user-shield" color="#ef4444">
+    Full system access and user management
+  </Card>
+  <Card title="Nutritionist" icon="user-doctor" color="#3b82f6">
+    Patient management and clinical services
+  </Card>
+  <Card title="Patient" icon="user" color="#10b981">
+    Book appointments and view health records
+  </Card>
+</CardGroup>
+
+## Role Implementation
+
+### Database Structure
+
+Roles are stored in the `roles` table and linked to users:
+
+```php
+User {
+  role_id: integer,
+  // role_id: 1 = Administrador
+  // role_id: 2 = Nutricionista  
+  // role_id: 3 = Paciente
+}
+```
+
+### Role Middleware
+
+The `RoleMiddleware` enforces role-based access:
+
+```php app/Http/Middleware/RoleMiddleware.php
+class RoleMiddleware
+{
+    public function handle(Request $request, Closure $next, string $role): Response
+    {
+        $user = $request->user();
+
+        // Si el usuario no está autenticado o no tiene rol
+        if (!$user || !$user->role) {
+            abort(403, 'Acceso no autorizado.');
+        }
+
+        // Verificar si coincide el rol
+        if ($user->role->name !== $role) {
+            abort(403, 'No tienes permisos para acceder a esta sección.');
+        }
+
+        return $next($request);
+    }
+}
+```
+
+### Middleware Registration
+
+Register in `bootstrap/app.php` or `app/Http/Kernel.php`:
+
+```php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'role' => \App\Http\Middleware\RoleMiddleware::class,
+        'password.changed' => \App\Http\Middleware\EnsurePasswordChanged::class,
+    ]);
+})
+```
+
+## Administrator Role
+
+### Permissions
+
+<AccordionGroup>
+  <Accordion title="User Management" icon="users-gear">
+    - Create, edit, and delete users
+    - Assign roles to users
+    - Enable/disable user accounts
+    - View all user accounts
+  </Accordion>
+  
+  <Accordion title="Nutritionist Management" icon="user-doctor">
+    - View all nutritionists
+    - Monitor nutritionist performance
+    - View nutritionist schedules and appointments
+  </Accordion>
+  
+  <Accordion title="Patient Management" icon="user">
+    - View all patients
+    - Access patient profiles
+    - Monitor patient appointments
+  </Accordion>
+  
+  <Accordion title="Appointment Oversight" icon="calendar">
+    - View all appointments
+    - Cancel appointments
+    - Monitor appointment statistics
+  </Accordion>
+  
+  <Accordion title="System Configuration" icon="gears">
+    - Configure system settings
+    - Manage contact information
+    - Generate reports
+  </Accordion>
+</AccordionGroup>
+
+### Admin Routes
+
+```php routes/web.php
+Route::middleware(['auth', 'verified', 'role:administrador'])
+    ->prefix('administrador')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', [AdminController::class, 'index'])
+            ->name('dashboard');
+        
+        // Gestión de usuarios
+        Route::get('/users', [AdminController::class, 'users'])
+            ->name('users.index');
+        Route::get('/users/create', [AdminController::class, 'createUser'])
+            ->name('users.create');
+        Route::post('/users', [AdminController::class, 'storeUser'])
+            ->name('users.store');
+        Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])
+            ->name('users.edit');
+        Route::put('/users/{user}', [AdminController::class, 'updateUser'])
+            ->name('users.update');
+        Route::post('/users/{user}/toggle-status', 
+            [AdminController::class, 'toggleUserStatus'])
+            ->name('users.toggle-status');
+        
+        // Gestión de nutricionistas
+        Route::get('/nutricionistas', [AdminController::class, 'nutricionistas'])
+            ->name('nutricionistas.index');
+        Route::get('/nutricionistas/{nutricionista}', 
+            [AdminController::class, 'showNutricionista'])
+            ->name('nutricionistas.show');
+        
+        // Gestión de pacientes
+        Route::get('/pacientes', [AdminController::class, 'pacientes'])
+            ->name('pacientes.index');
+        Route::get('/pacientes/{paciente}', [AdminController::class, 'showPaciente'])
+            ->name('pacientes.show');
+        
+        // Gestión de citas
+        Route::get('/appointments', [AdminController::class, 'appointments'])
+            ->name('appointments.index');
+        Route::get('/appointments/{appointment}', 
+            [AdminController::class, 'showAppointment'])
+            ->name('appointments.show');
+        Route::post('/appointments/{appointment}/cancel', 
+            [AdminController::class, 'cancelAppointment'])
+            ->name('appointments.cancel');
+        
+        // Reportes y configuración
+        Route::get('/reports', [AdminController::class, 'reports'])
+            ->name('reports.index');
+        Route::get('/settings', [AdminController::class, 'settings'])
+            ->name('settings.index');
+        Route::get('/system-settings', [AdminController::class, 'systemSettings'])
+            ->name('system-settings.index');
+    });
+```
+
+### Admin Dashboard Features
+
+- User statistics and overview
+- Recent appointments
+- System activity logs
+- Quick access to management functions
+
+## Nutritionist Role
+
+### Permissions
+
+<AccordionGroup>
+  <Accordion title="Schedule Management" icon="calendar-days">
+    - Set availability hours
+    - Configure working days
+    - Block time slots
+    - View personal calendar
+  </Accordion>
+  
+  <Accordion title="Patient Management" icon="users">
+    - View assigned patients
+    - Access patient profiles
+    - View patient history
+    - Create patient data records
+  </Accordion>
+  
+  <Accordion title="Appointment Management" icon="calendar-check">
+    - View appointments
+    - Create appointments for patients
+    - Confirm appointments
+    - Reschedule appointments
+    - Cancel appointments
+  </Accordion>
+  
+  <Accordion title="Clinical Attention" icon="notes-medical">
+    - Create attention records
+    - Edit attention records
+    - Record anthropometric data
+    - Create nutritional plans
+    - Generate PDF reports
+  </Accordion>
+</AccordionGroup>
+
+### Nutritionist Routes
+
+```php routes/web.php
+Route::middleware(['auth', 'verified', 'role:nutricionista'])
+    ->prefix('nutricionista')
+    ->name('nutricionista.')
+    ->group(function () {
+        Route::get('/dashboard', [NutricionistaController::class, 'index'])
+            ->name('dashboard');
+        
+        // Gestión de horarios
+        Route::get('/horarios', [NutricionistaController::class, 'schedules'])
+            ->name('schedules.index');
+        Route::post('/horarios', [NutricionistaController::class, 'saveSchedules'])
+            ->name('schedules.save');
+        
+        // Gestión de pacientes
+        Route::get('/pacientes', [NutricionistaController::class, 'patients'])
+            ->name('patients.index');
+        Route::get('/pacientes/{patient}', 
+            [NutricionistaController::class, 'showPatient'])
+            ->name('patients.show');
+        Route::get('/pacientes/{patient}/datos/{appointment?}', 
+            [NutricionistaController::class, 'patientData'])
+            ->name('patients.data');
+        Route::get('/pacientes/{patient}/historial', 
+            [NutricionistaController::class, 'patientHistory'])
+            ->name('patients.history');
+        
+        // Asignar citas
+        Route::get('/citas/asignar', 
+            [NutricionistaController::class, 'createAppointment'])
+            ->name('appointments.create');
+        Route::post('/citas/asignar', 
+            [NutricionistaController::class, 'storeAppointment'])
+            ->name('appointments.store');
+        
+        // Gestión de citas
+        Route::get('/citas', [NutricionistaController::class, 'appointments'])
+            ->name('appointments.index');
+        Route::get('/appointments/{appointment}', 
+            [NutricionistaController::class, 'showAppointment'])
+            ->name('appointments.show');
+        Route::post('/appointments/{appointment}/cancel', 
+            [NutricionistaController::class, 'cancelAppointment'])
+            ->name('appointments.cancel');
+        Route::get('/appointments/{appointment}/reschedule', 
+            [NutricionistaController::class, 'rescheduleForm'])
+            ->name('appointments.reschedule');
+        Route::post('/appointments/{appointment}/reschedule', 
+            [NutricionistaController::class, 'rescheduleAppointment'])
+            ->name('appointments.reschedule.store');
+        
+        // Gestión de atenciones
+        Route::get('/citas/{appointment}/atender', 
+            [AttentionController::class, 'create'])
+            ->name('attentions.create');
+        Route::post('/citas/{appointment}/atender', 
+            [AttentionController::class, 'store'])
+            ->name('attentions.store');
+        Route::get('/citas/{appointment}/editar-atencion', 
+            [AttentionController::class, 'edit'])
+            ->name('attentions.edit');
+        Route::put('/citas/{appointment}/editar-atencion', 
+            [AttentionController::class, 'update'])
+            ->name('attentions.update');
+        
+        // PDF de atención
+        Route::get('/citas/{appointment}/pdf', 
+            [AttentionPdfController::class, 'download'])
+            ->name('attentions.pdf.download');
+        Route::get('/citas/{appointment}/pdf/ver', 
+            [AttentionPdfController::class, 'view'])
+            ->name('attentions.pdf.view');
+    });
+```
+
+### Nutritionist Dashboard Features
+
+- Today's appointments
+- Upcoming schedule
+- Patient list
+- Quick access to create appointments
+- Recent clinical records
+
+## Patient Role
+
+### Permissions
+
+<AccordionGroup>
+  <Accordion title="Appointment Booking" icon="calendar-plus">
+    - Browse nutritionists
+    - View nutritionist availability
+    - Book appointments
+    - Cancel own appointments
+  </Accordion>
+  
+  <Accordion title="Appointment Management" icon="calendar">
+    - View upcoming appointments
+    - View appointment history
+    - View appointment details
+  </Accordion>
+  
+  <Accordion title="Clinical History" icon="file-medical">
+    - View own clinical records
+    - Download PDF reports
+    - Track progress over time
+  </Accordion>
+  
+  <Accordion title="Profile Management" icon="user-gear">
+    - Update personal information
+    - Change password
+    - View contact information
+  </Accordion>
+</AccordionGroup>
+
+### Patient Routes
+
+```php routes/web.php
+// Ruta para cambiar contraseña por defecto (sin password.changed middleware)
+Route::middleware(['auth', 'role:paciente'])
+    ->prefix('paciente')
+    ->name('paciente.')
+    ->group(function () {
+        Route::get('/cambiar-contrasena', 
+            [PasswordController::class, 'showChangePassword'])
+            ->name('change-default-password');
+        Route::post('/cambiar-contrasena', 
+            [PasswordController::class, 'updatePassword'])
+            ->name('change-default-password.update');
+    });
+
+// Rutas protegidas con verified y password.changed
+Route::middleware(['auth', 'verified', 'role:paciente', 'password.changed'])
+    ->prefix('paciente')
+    ->name('paciente.')
+    ->group(function () {
+        Route::get('/dashboard', [PacienteController::class, 'index'])
+            ->name('dashboard');
+        
+        // Agendar citas
+        Route::get('/agendar', [PacienteController::class, 'showBooking'])
+            ->name('booking.index');
+        Route::get('/agendar/{nutricionista}', 
+            [PacienteController::class, 'selectSchedule'])
+            ->name('booking.schedule');
+        Route::post('/agendar/{nutricionista}', 
+            [PacienteController::class, 'storeAppointment'])
+            ->name('booking.store');
+        
+        // Gestión de citas
+        Route::get('/citas', [PacienteController::class, 'appointments'])
+            ->name('appointments.index');
+        Route::get('/citas/{appointment}', 
+            [PacienteController::class, 'showAppointment'])
+            ->name('appointments.show');
+        Route::post('/citas/{appointment}/cancelar', 
+            [PacienteController::class, 'cancelAppointment'])
+            ->name('appointments.cancel');
+        
+        // PDF de atención
+        Route::get('/citas/{appointment}/pdf', 
+            [AttentionPdfController::class, 'download'])
+            ->name('attentions.pdf.download');
+        Route::get('/citas/{appointment}/pdf/ver', 
+            [AttentionPdfController::class, 'view'])
+            ->name('attentions.pdf.view');
+        
+        // Historial clínico
+        Route::get('/historial', [PacienteController::class, 'history'])
+            ->name('history');
+        
+        // Perfil
+        Route::get('/perfil', [PacienteController::class, 'profile'])
+            ->name('profile');
+    });
+```
+
+### Patient Dashboard Features
+
+- Upcoming appointments
+- Recent clinical attention
+- Quick booking button
+- Health progress summary
+
+## Additional Middleware
+
+### Email Verification
+
+All role-specific routes require email verification:
+
+```php
+Route::middleware(['auth', 'verified', 'role:paciente'])
+```
+
+<Info>
+Patients must verify their email before accessing the dashboard and booking appointments.
+</Info>
+
+### Password Changed Middleware
+
+Patients created by administrators must change their default password:
+
+```php
+Route::middleware(['auth', 'verified', 'role:paciente', 'password.changed'])
+```
+
+This ensures security by forcing password changes on first login.
+
+## Route Protection Examples
+
+### Checking Role in Controllers
+
+```php
+public function showAppointment(Appointment $appointment)
+{
+    $user = auth()->user();
+    
+    // Nutritionist can only view their own appointments
+    if ($user->role->name === 'nutricionista' 
+        && $appointment->nutricionista_id !== $user->id) {
+        abort(403, 'No tienes permiso para ver esta cita.');
+    }
+    
+    // Patient can only view their own appointments
+    if ($user->role->name === 'paciente' 
+        && $appointment->paciente_id !== $user->id) {
+        abort(403, 'No tienes permiso para ver esta cita.');
+    }
+    
+    return view('appointments.show', compact('appointment'));
+}
+```
+
+### Checking Role in Blade Templates
+
+```blade
+@if(auth()->user()->role->name === 'administrador')
+    <a href="{{ route('admin.dashboard') }}">Admin Dashboard</a>
+@elseif(auth()->user()->role->name === 'nutricionista')
+    <a href="{{ route('nutricionista.dashboard') }}">Nutritionist Dashboard</a>
+@elseif(auth()->user()->role->name === 'paciente')
+    <a href="{{ route('paciente.dashboard') }}">Patient Dashboard</a>
+@endif
+```
+
+## User Creation by Role
+
+### Self-Registration (Patients)
+
+Patients can register themselves:
+
+```php app/Actions/Fortify/CreateNewUser.php
+$user = User::create([
+    'name' => $input['name'],
+    'email' => $input['email'],
+    'password' => $input['password'],
+    'role_id' => 3, // Paciente
+    'data_consent' => true,
+    'data_consent_at' => now(),
+]);
+```
+
+### Admin Creation (All Roles)
+
+Administrators can create users with any role:
+
+```php
+Route::post('/users', [AdminController::class, 'storeUser'])
+    ->name('users.store');
+```
+
+<Warning>
+Users created by administrators receive a default password and must change it on first login.
+</Warning>
+
+## Dashboard Redirects
+
+After login, users are redirected based on their role:
+
+```php
+if ($user->role->name === 'administrador') {
+    return redirect()->route('admin.dashboard');
+} elseif ($user->role->name === 'nutricionista') {
+    return redirect()->route('nutricionista.dashboard');
+} elseif ($user->role->name === 'paciente') {
+    // Check if password needs changing
+    if ($user->hasDefaultPassword()) {
+        return redirect()->route('paciente.change-default-password');
+    }
+    return redirect()->route('paciente.dashboard');
+}
+```
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Use Middleware" icon="shield">
+    Never rely solely on hiding UI elements. Always enforce role checks in middleware.
+  </Accordion>
+  
+  <Accordion title="Double-Check in Controllers" icon="shield-check">
+    Even with middleware, verify ownership in controllers (e.g., nutritionist viewing their own patients).
+  </Accordion>
+  
+  <Accordion title="Use Route Model Binding" icon="link">
+    Laravel's route model binding prevents accessing unauthorized records.
+  </Accordion>
+  
+  <Accordion title="Log Access Attempts" icon="file-lines">
+    Consider logging unauthorized access attempts for security auditing.
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/features/authentication">
+    Learn about the authentication system
+  </Card>
+  <Card title="Appointments" icon="calendar" href="/features/appointments">
+    Explore appointment management
+  </Card>
+  <Card title="Clinical Records" icon="notes-medical" href="/features/clinical-records">
+    Understand clinical data management
+  </Card>
+</CardGroup>

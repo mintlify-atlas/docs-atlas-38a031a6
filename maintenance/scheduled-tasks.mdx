@@ -1,0 +1,396 @@
+---
+title: 'Scheduled Tasks'
+description: 'Configure and manage automated tasks in NutriFit using Laravel Task Scheduler'
+icon: 'clock'
+---
+
+## Overview
+
+NutriFit uses Laravel's Task Scheduler to automate recurring tasks such as sending appointment reminders. This eliminates the need to configure individual cron jobs for each task.
+
+## Task Scheduler Configuration
+
+### Current Scheduled Tasks
+
+Tasks are defined in `routes/console.php`:
+
+```php routes/console.php
+use Illuminate\Support\Facades\Schedule;
+
+// Send appointment reminders daily at 9:00 AM
+Schedule::command('appointments:send-reminders')->dailyAt('09:00');
+```
+
+**Active Scheduled Tasks**:
+
+| Task | Schedule | Command | Purpose |
+|------|----------|---------|----------|
+| Appointment Reminders | Daily at 9:00 AM | `appointments:send-reminders` | Sends email reminders 24 hours before appointments |
+
+---
+
+## Server Cron Configuration
+
+### Single Cron Entry
+
+Laravel's scheduler requires only **one** cron entry on your server. This entry runs every minute and Laravel determines which tasks to execute.
+
+#### Production Setup (Linux/Unix)
+
+1. Open your server's crontab:
+   ```bash
+   crontab -e
+   ```
+
+2. Add this single line (adjust path to your NutriFit installation):
+   ```bash
+   * * * * * cd /path/to/nutrifit && php artisan schedule:run >> /dev/null 2>&1
+   ```
+
+3. Save and exit. The scheduler will now run every minute.
+
+**Example with Full Path**:
+```bash
+* * * * * cd /var/www/nutrifit && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+```
+
+---
+
+### Development Testing
+
+Test scheduled tasks without waiting for the cron schedule:
+
+```bash
+# Manually trigger the scheduler
+php artisan schedule:run
+```
+
+**Output Example**:
+```
+Running scheduled command: php artisan appointments:send-reminders
+```
+
+To test a specific command directly:
+```bash
+php artisan appointments:send-reminders
+```
+
+---
+
+## Schedule Frequency Options
+
+Laravel provides multiple scheduling options beyond `dailyAt()`:
+
+### Time-Based Schedules
+
+```php
+// Every minute
+Schedule::command('command')->everyMinute();
+
+// Every 5 minutes
+Schedule::command('command')->everyFiveMinutes();
+
+// Hourly
+Schedule::command('command')->hourly();
+
+// Hourly at 15 minutes past
+Schedule::command('command')->hourlyAt(15);
+
+// Daily at midnight
+Schedule::command('command')->daily();
+
+// Daily at specific time
+Schedule::command('command')->dailyAt('13:00');
+
+// Twice daily
+Schedule::command('command')->twiceDaily(9, 21);
+
+// Weekly
+Schedule::command('command')->weekly();
+
+// Weekly on Sunday at 1 AM
+Schedule::command('command')->weeklyOn(0, '1:00');
+
+// Monthly
+Schedule::command('command')->monthly();
+
+// Monthly on specific day and time
+Schedule::command('command')->monthlyOn(15, '09:00');
+
+// Quarterly
+Schedule::command('command')->quarterly();
+
+// Yearly
+Schedule::command('command')->yearly();
+```
+
+### Day-Specific Schedules
+
+```php
+// Weekdays only (Monday-Friday)
+Schedule::command('command')->weekdays();
+
+// Weekends only
+Schedule::command('command')->weekends();
+
+// Specific days
+Schedule::command('command')->mondays();
+Schedule::command('command')->tuesdays();
+Schedule::command('command')->wednesdays();
+// ... and so on
+```
+
+---
+
+## Adding New Scheduled Tasks
+
+### Example: Daily Database Cleanup
+
+1. Create the command:
+   ```bash
+   php artisan make:command CleanupOldData
+   ```
+
+2. Define the command in `app/Console/Commands/CleanupOldData.php`:
+   ```php
+   protected $signature = 'data:cleanup';
+   protected $description = 'Remove old cancelled appointments';
+
+   public function handle()
+   {
+       // Cleanup logic
+       $deleted = Appointment::where('estado', 'cancelada')
+           ->where('created_at', '<', now()->subMonths(6))
+           ->delete();
+
+       $this->info("Deleted {$deleted} old appointments");
+   }
+   ```
+
+3. Schedule it in `routes/console.php`:
+   ```php
+   Schedule::command('data:cleanup')->weekly();
+   ```
+
+---
+
+## Production Configuration
+
+### Using Supervisor (Recommended)
+
+While cron handles scheduled tasks, use **Supervisor** to ensure queue workers run continuously:
+
+#### Install Supervisor
+```bash
+sudo apt-get install supervisor
+```
+
+#### Create Supervisor Configuration
+
+File: `/etc/supervisor/conf.d/nutrifit-worker.conf`
+
+```ini
+[program:nutrifit-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/nutrifit/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/nutrifit/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+#### Start Supervisor
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start nutrifit-worker:*
+```
+
+#### Monitor Queue Workers
+```bash
+sudo supervisorctl status nutrifit-worker:*
+```
+
+---
+
+## Monitoring Scheduled Tasks
+
+### View Scheduled Tasks List
+
+```bash
+php artisan schedule:list
+```
+
+**Output Example**:
+```
+0 9 * * *  php artisan appointments:send-reminders ... Next Due: 1 day from now
+```
+
+### Task Logging
+
+Add logging to scheduled tasks:
+
+```php
+Schedule::command('appointments:send-reminders')
+    ->dailyAt('09:00')
+    ->sendOutputTo(storage_path('logs/scheduler.log'));
+```
+
+Or append to log:
+```php
+Schedule::command('appointments:send-reminders')
+    ->dailyAt('09:00')
+    ->appendOutputTo(storage_path('logs/scheduler.log'));
+```
+
+### Email Task Output
+
+Receive email notifications when tasks complete:
+
+```php
+Schedule::command('appointments:send-reminders')
+    ->dailyAt('09:00')
+    ->emailOutputTo('admin@nutrifit.com');
+```
+
+---
+
+## Task Constraints
+
+### Prevent Overlaps
+
+Ensure a task doesn't run if the previous execution is still active:
+
+```php
+Schedule::command('appointments:send-reminders')
+    ->dailyAt('09:00')
+    ->withoutOverlapping();
+```
+
+### Run in Maintenance Mode
+
+Allow tasks to run even when the application is in maintenance mode:
+
+```php
+Schedule::command('data:cleanup')
+    ->daily()
+    ->evenInMaintenanceMode();
+```
+
+### Conditional Execution
+
+Run tasks only when conditions are met:
+
+```php
+Schedule::command('appointments:send-reminders')
+    ->dailyAt('09:00')
+    ->when(function () {
+        return config('app.env') === 'production';
+    });
+```
+
+---
+
+## Development Environment
+
+### Local Development
+
+During development, you typically **don't** need to set up cron. Instead:
+
+1. Run tasks manually:
+   ```bash
+   php artisan schedule:run
+   ```
+
+2. Or test commands directly:
+   ```bash
+   php artisan appointments:send-reminders
+   ```
+
+### Alternative: Laravel Schedule Monitor
+
+For advanced monitoring, consider packages like [spatie/laravel-schedule-monitor](https://github.com/spatie/laravel-schedule-monitor).
+
+---
+
+## Troubleshooting
+
+### Tasks Not Running
+
+1. **Verify cron is configured**:
+   ```bash
+   crontab -l
+   ```
+   Should show the `* * * * *` entry.
+
+2. **Check scheduler is working**:
+   ```bash
+   php artisan schedule:run
+   ```
+
+3. **Verify task is registered**:
+   ```bash
+   php artisan schedule:list
+   ```
+
+4. **Check file permissions**:
+   ```bash
+   sudo chown -R www-data:www-data /var/www/nutrifit
+   ```
+
+### Cron Logs
+
+View cron execution logs:
+```bash
+sudo tail -f /var/log/syslog | grep CRON
+```
+
+### Scheduler Output
+
+Capture output for debugging:
+```bash
+* * * * * cd /path/to/nutrifit && php artisan schedule:run >> /var/log/laravel-scheduler.log 2>&1
+```
+
+---
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Single Cron Entry">
+    Never create multiple cron entries for individual Laravel commands. Use Laravel's scheduler and one cron entry.
+  </Accordion>
+  
+  <Accordion title="Monitor Task Execution">
+    Use logging and monitoring to track successful and failed task executions.
+  </Accordion>
+  
+  <Accordion title="Prevent Overlapping">
+    Use `withoutOverlapping()` for long-running tasks to prevent concurrent executions.
+  </Accordion>
+  
+  <Accordion title="Restart Queue Workers After Deployments">
+    Always restart queue workers after code deployments:
+    ```bash
+    php artisan queue:restart
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Artisan Commands" icon="terminal" href="/maintenance/commands">
+    Available Artisan commands and usage
+  </Card>
+  <Card title="Database Backups" icon="database" href="/maintenance/database-backups">
+    Automated backup strategies
+  </Card>
+</CardGroup>

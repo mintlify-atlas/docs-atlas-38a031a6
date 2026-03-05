@@ -1,0 +1,531 @@
+---
+title: 'Notification System'
+description: 'Complete guide to email notifications, queue workers, and notification types in NutriFit'
+icon: 'bell'
+---
+
+## Overview
+
+NutriFit uses Laravel's notification system to send automated email notifications for authentication events, appointments, clinical records, and account management.
+
+<Note>
+All notifications implement `ShouldQueue` interface for asynchronous processing, ensuring fast response times.
+</Note>
+
+## Architecture
+
+The notification system is built on Laravel's notification framework with queue support:
+
+```php
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class ExampleNotification extends Notification implements ShouldQueue
+{
+    use Queueable;
+    
+    public function via(object $notifiable): array
+    {
+        return ['mail'];
+    }
+    
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('Subject Line')
+            ->greeting('Hello!')
+            ->line('Notification content...')
+            ->action('Action Button', url('/'));
+    }
+}
+```
+
+## Notification Types
+
+### Authentication Notifications
+
+<CardGroup cols={2}>
+  <Card title="WelcomeNotification" icon="hand-wave">
+    Sent after email verification to welcome new users
+  </Card>
+  <Card title="VerifyEmailNotification" icon="envelope-circle-check">
+    Email verification link for new accounts
+  </Card>
+  <Card title="ResetPasswordNotification" icon="key">
+    Password reset link when requested
+  </Card>
+  <Card title="PasswordChangedNotification" icon="shield-check">
+    Confirmation after password change
+  </Card>
+</CardGroup>
+
+#### Welcome Email Example
+
+```php app/Notifications/WelcomeNotification.php
+class WelcomeNotification extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('🎉 ¡Bienvenido a NutriFit!')
+            ->greeting('¡Hola ' . $notifiable->name . '!')
+            ->line('¡Gracias por registrarte en NutriFit! Nos alegra que formes parte de nuestra comunidad.')
+            ->line('Tu cuenta ha sido creada exitosamente y ya puedes empezar a usar todas nuestras funcionalidades:')
+            ->line('✅ Agendar citas con nutricionistas profesionales')
+            ->line('✅ Mantener tu historial clínico organizado')
+            ->line('✅ Recibir seguimiento continuo de tu progreso')
+            ->action('Explorar NutriFit', url('/paciente/dashboard'))
+            ->salutation('¡Bienvenido al equipo! ' . config('app.name'));
+    }
+}
+```
+
+### Account Management Notifications
+
+<AccordionGroup>
+  <Accordion title="UserAccountEnabledNotification">
+    Sent when administrator enables a disabled account
+  </Accordion>
+  
+  <Accordion title="UserAccountDisabledNotification">
+    Sent when administrator disables an account
+  </Accordion>
+  
+  <Accordion title="PersonalDataCreatedNotification">
+    Sent when nutritionist creates patient's personal data
+  </Accordion>
+</AccordionGroup>
+
+### Appointment Notifications
+
+The system sends comprehensive appointment-related notifications:
+
+<Tabs>
+  <Tab title="Creation">
+    **AppointmentCreatedNotification** (to Nutritionist)
+    
+    ```php app/Notifications/AppointmentCreatedNotification.php
+    public function toMail(object $notifiable): MailMessage
+    {
+        $appointmentDate = $this->appointment->start_time->format('d/m/Y');
+        $appointmentTime = $this->appointment->start_time->format('H:i');
+        $patientName = $this->appointment->paciente->name;
+
+        return (new MailMessage)
+            ->subject('🗓️ Nueva Cita Agendada - NutriFit')
+            ->greeting('¡Hola Dr(a). ' . $notifiable->name . '!')
+            ->line('Se ha agendado una nueva cita en tu calendario.')
+            ->line('**Paciente:** ' . $patientName)
+            ->line('**Fecha:** ' . $appointmentDate)
+            ->line('**Hora:** ' . $appointmentTime)
+            ->action('Ver Detalles', url('/nutricionista/dashboard'));
+    }
+    ```
+    
+    **AppointmentCreatedForPatientNotification** (to Patient)
+    
+    Confirms booking to the patient
+  </Tab>
+  
+  <Tab title="Confirmation">
+    **AppointmentConfirmedForPatient**
+    
+    Sent when nutritionist confirms the appointment
+  </Tab>
+  
+  <Tab title="Reminders">
+    **AppointmentReminderNotification**
+    
+    ```php app/Notifications/AppointmentReminderNotification.php
+    public function toMail(object $notifiable): MailMessage
+    {
+        $appointmentDate = $this->appointment->start_time->format('d/m/Y');
+        $appointmentTime = $this->appointment->start_time->format('H:i');
+        
+        // Determinar si es para paciente o nutricionista
+        $isPaciente = $notifiable->role->name === 'paciente';
+        $otherPerson = $isPaciente 
+            ? 'Dr(a). ' . $this->appointment->nutricionista->name
+            : $this->appointment->paciente->name;
+
+        return (new MailMessage)
+            ->subject('⏰ Recordatorio: Cita Mañana - NutriFit')
+            ->greeting('¡Hola ' . $notifiable->name . '!')
+            ->line('Te recordamos que tienes una cita mañana.')
+            ->line('**' . ($isPaciente ? 'Nutricionista' : 'Paciente') . ':** ' . $otherPerson)
+            ->line('**Fecha:** ' . $appointmentDate)
+            ->line('**Hora:** ' . $appointmentTime)
+            ->action('Ver Detalles', 
+                url($isPaciente ? '/paciente/citas' : '/nutricionista/dashboard'))
+            ->line('Por favor, llega puntual a tu cita.');
+    }
+    ```
+    
+    Sent **24 hours before** appointment to both patient and nutritionist
+  </Tab>
+  
+  <Tab title="Rescheduling">
+    **AppointmentRescheduledNotification**
+    
+    Sent when appointment time is changed
+  </Tab>
+  
+  <Tab title="Cancellation">
+    **AppointmentCancelledByPatient** (to Nutritionist)
+    
+    Notifies nutritionist of patient cancellation
+    
+    **AppointmentCancelledByNutricionista** (to Patient)
+    
+    Notifies patient of nutritionist cancellation
+  </Tab>
+</Tabs>
+
+### Clinical Record Notifications
+
+**AttentionCompletedNotification**
+
+Sent to patient when nutritionist completes clinical attention:
+
+```php app/Notifications/AttentionCompletedNotification.php
+class AttentionCompletedNotification extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(
+        public Attention $attention
+    ) {}
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $appointmentDate = $this->attention->appointment->start_time->format('d/m/Y');
+        $appointmentTime = $this->attention->appointment->start_time->format('H:i');
+        $nutricionistaName = $this->attention->nutricionista->name;
+
+        $weight = $this->attention->attentionData->weight ?? 'N/A';
+        $bmi = $this->attention->attentionData->bmi ?? 'N/A';
+
+        return (new MailMessage)
+            ->subject('✅ Atención Nutricional Completada - NutriFit')
+            ->greeting('¡Hola ' . $notifiable->name . '!')
+            ->line('Tu atención nutricional ha sido completada exitosamente.')
+            ->line('**Nutricionista:** Dr(a). ' . $nutricionistaName)
+            ->line('**Fecha de atención:** ' . $appointmentDate . ' a las ' . $appointmentTime)
+            ->line('**Peso registrado:** ' . $weight . ' kg')
+            ->line('**IMC:** ' . number_format($bmi, 2))
+            ->line('Se ha generado un plan nutricional personalizado con diagnóstico y recomendaciones específicas para ti.')
+            ->action('Ver Reporte Completo', 
+                url('/paciente/citas/' . $this->attention->appointment_id))
+            ->line('Recuerda seguir las recomendaciones de tu nutricionista para alcanzar tus objetivos de salud.');
+    }
+}
+```
+
+### Contact Form Notification
+
+**ContactFormNotification**
+
+Sent to administrators when users submit the contact form.
+
+## Sending Notifications
+
+### Direct Sending
+
+Notifications are sent using Laravel's notification facade:
+
+```php
+use App\Notifications\AppointmentCreatedNotification;
+
+// Send to single user
+$user->notify(new AppointmentCreatedNotification($appointment));
+
+// Send to multiple users
+Notification::send($users, new WelcomeNotification());
+```
+
+### Queued Processing
+
+All notifications implement `ShouldQueue` for background processing:
+
+```php
+class AppointmentReminderNotification extends Notification implements ShouldQueue
+{
+    use Queueable;
+    
+    // Notification will be processed in background
+}
+```
+
+<Info>
+Queued notifications prevent blocking the request-response cycle, providing better user experience.
+</Info>
+
+## Queue Workers
+
+### Configuration
+
+Configure queue connection in `.env`:
+
+```bash .env
+QUEUE_CONNECTION=database
+# or
+QUEUE_CONNECTION=redis
+# or
+QUEUE_CONNECTION=sync  # For development
+```
+
+### Running Queue Workers
+
+<Tabs>
+  <Tab title="Development">
+    ```bash
+    php artisan queue:work
+    ```
+    
+    Processes queued jobs. Use Ctrl+C to stop.
+  </Tab>
+  
+  <Tab title="Production">
+    ```bash
+    php artisan queue:work --daemon
+    ```
+    
+    Or use Supervisor for automatic restart:
+    
+    ```ini /etc/supervisor/conf.d/nutrifit-worker.conf
+    [program:nutrifit-worker]
+    process_name=%(program_name)s_%(process_num)02d
+    command=php /path/to/nutrifit/artisan queue:work --sleep=3 --tries=3
+    autostart=true
+    autorestart=true
+    user=www-data
+    numprocs=2
+    redirect_stderr=true
+    stdout_logfile=/path/to/nutrifit/storage/logs/worker.log
+    ```
+  </Tab>
+  
+  <Tab title="Testing">
+    ```bash
+    # Process only one job then exit
+    php artisan queue:work --once
+    
+    # Increase verbosity
+    php artisan queue:work -vvv
+    ```
+  </Tab>
+</Tabs>
+
+### Queue Monitoring
+
+```bash
+# List failed jobs
+php artisan queue:failed
+
+# Retry failed job
+php artisan queue:retry <job-id>
+
+# Retry all failed jobs
+php artisan queue:retry all
+
+# Flush failed jobs
+php artisan queue:flush
+```
+
+## Scheduled Notifications
+
+### Appointment Reminders
+
+Reminders are sent via scheduled command:
+
+```php app/Console/Commands/SendAppointmentReminders.php
+class SendAppointmentReminders extends Command
+{
+    protected $signature = 'appointments:send-reminders';
+
+    public function handle()
+    {
+        $tomorrow = Carbon::tomorrow()->toDateString();
+        
+        $appointments = Appointment::whereDate('start_time', $tomorrow)
+            ->whereHas('appointmentState', function($query) {
+                $query->whereIn('name', ['confirmada', 'pendiente']);
+            })
+            ->with(['paciente', 'nutricionista'])
+            ->get();
+
+        foreach ($appointments as $appointment) {
+            $appointment->paciente->notify(
+                new AppointmentReminderNotification($appointment)
+            );
+            $appointment->nutricionista->notify(
+                new AppointmentReminderNotification($appointment)
+            );
+        }
+    }
+}
+```
+
+### Schedule Configuration
+
+Add to `app/Console/Kernel.php`:
+
+```php
+protected function schedule(Schedule $schedule)
+{
+    // Send appointment reminders daily at 9 AM
+    $schedule->command('appointments:send-reminders')
+        ->dailyAt('09:00');
+}
+```
+
+### Running Scheduler
+
+Add to crontab:
+
+```bash
+* * * * * cd /path-to-nutrifit && php artisan schedule:run >> /dev/null 2>&1
+```
+
+## Email Configuration
+
+### SMTP Setup
+
+Configure email in `.env`:
+
+```bash .env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=your-username
+MAIL_PASSWORD=your-password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=noreply@nutrifit.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+### Testing Emails
+
+Use Mailtrap or similar for development:
+
+```bash
+# Send test notification
+php artisan tinker
+>>> $user = User::first();
+>>> $user->notify(new \App\Notifications\WelcomeNotification());
+```
+
+## Notification Customization
+
+### Custom Styling
+
+Publish notification templates:
+
+```bash
+php artisan vendor:publish --tag=laravel-notifications
+```
+
+Customize in `resources/views/vendor/notifications/`.
+
+### Multi-Channel Notifications
+
+Add additional channels:
+
+```php
+public function via(object $notifiable): array
+{
+    return ['mail', 'database', 'broadcast'];
+}
+
+public function toDatabase(object $notifiable): array
+{
+    return [
+        'appointment_id' => $this->appointment->id,
+        'message' => 'New appointment scheduled',
+    ];
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Use Queues" icon="list-check">
+    Implement `ShouldQueue` on all notifications to prevent blocking requests
+  </Accordion>
+  
+  <Accordion title="Include Action Links" icon="link">
+    Provide direct links to relevant pages in notification emails
+  </Accordion>
+  
+  <Accordion title="Personalize Content" icon="user">
+    Use recipient's name and include specific details
+  </Accordion>
+  
+  <Accordion title="Clear Subject Lines" icon="heading">
+    Use descriptive subjects with emojis for visual recognition
+  </Accordion>
+  
+  <Accordion title="Monitor Failed Jobs" icon="eye">
+    Regularly check and retry failed notification jobs
+  </Accordion>
+  
+  <Accordion title="Test Thoroughly" icon="flask">
+    Test all notification types in development environment
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<Warning>
+If notifications aren't being sent, check these common issues:
+</Warning>
+
+### Queue Not Processing
+
+```bash
+# Check if queue worker is running
+ps aux | grep "queue:work"
+
+# Start queue worker
+php artisan queue:work
+```
+
+### Failed Jobs
+
+```bash
+# View failed jobs
+php artisan queue:failed
+
+# Check error details
+php artisan queue:failed-table
+php artisan migrate
+```
+
+### Email Not Sending
+
+```bash
+# Test email configuration
+php artisan config:clear
+php artisan cache:clear
+
+# Check logs
+tail -f storage/logs/laravel.log
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Appointments" icon="calendar" href="/features/appointments">
+    Learn about appointment scheduling
+  </Card>
+  <Card title="Authentication" icon="lock" href="/features/authentication">
+    Explore authentication system
+  </Card>
+  <Card title="Clinical Records" icon="notes-medical" href="/features/clinical-records">
+    Understand clinical attention workflow
+  </Card>
+</CardGroup>

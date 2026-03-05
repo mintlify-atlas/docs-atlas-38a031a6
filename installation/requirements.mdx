@@ -1,0 +1,154 @@
+---
+title: System Requirements
+description: Prerequisites and dependencies needed to run NutriFit
+---
+
+Before installing NutriFit, ensure your development environment meets the following requirements.
+
+## PHP Requirements
+
+NutriFit requires **PHP 8.2 or higher**. The application is built on Laravel 12, which requires modern PHP features.
+
+### Required PHP Extensions
+
+The following PHP extensions must be enabled:
+
+<CardGroup cols={2}>
+  <Card title="PDO Extensions" icon="database">
+    - `pdo_sqlite` (for development)
+    - `pdo_mysql` (for production)
+  </Card>
+  <Card title="Core Extensions" icon="code">
+    - `mbstring`
+    - `tokenizer`
+    - `xml`
+    - `ctype`
+  </Card>
+  <Card title="Data Extensions" icon="file-code">
+    - `json`
+    - `bcmath`
+    - `fileinfo`
+  </Card>
+  <Card title="Optional" icon="plus">
+    - `gd` or `imagick` (for image processing)
+    - `zip` (for package management)
+  </Card>
+</CardGroup>
+
+### Verify PHP Extensions
+
+Run this command to check if required extensions are enabled:
+
+```bash
+php -m | grep -E '(pdo|mbstring|tokenizer|xml|ctype|json|bcmath|fileinfo)'
+```
+
+## Node.js & Package Manager
+
+For frontend asset compilation and development:
+
+| Package | Minimum Version | Purpose |
+|---------|----------------|----------|
+| **Node.js** | 18.x or higher | JavaScript runtime |
+| **npm** | Included with Node.js | Package manager |
+
+Alternatively, you can use **Yarn** or **pnpm** as your package manager.
+
+### Verify Node.js Installation
+
+```bash
+node --version  # Should return v18.x or higher
+npm --version   # Should return 9.x or higher
+```
+
+## Database Requirements
+
+NutriFit supports two database systems:
+
+### SQLite (Development)
+
+<Note>
+SQLite is included with PHP by default and requires no additional setup. Perfect for local development.
+</Note>
+
+- **Version**: Any recent version
+- **Setup**: Automatically created on first migration
+- **File location**: `database/database.sqlite`
+
+### MySQL (Production)
+
+<Warning>
+For production environments, MySQL 8.0+ is strongly recommended for performance and scalability.
+</Warning>
+
+- **Version**: 8.0 or higher
+- **Character set**: UTF-8 (utf8mb4)
+- **Collation**: utf8mb4_unicode_ci
+
+## Package Manager
+
+### Composer
+
+PHP dependency management requires **Composer 2.x** or higher.
+
+```bash
+composer --version  # Should return 2.x
+```
+
+If not installed, download from [getcomposer.org](https://getcomposer.org/).
+
+## Version Control
+
+### Git
+
+Required for cloning the repository and version management:
+
+```bash
+git --version  # Should return 2.x or higher
+```
+
+## Additional Tools
+
+<CardGroup cols={2}>
+  <Card title="Laravel Sail (Optional)" icon="docker">
+    Docker-based development environment for Laravel. Useful if you don't want to install PHP locally.
+  </Card>
+  <Card title="Mailtrap (Development)" icon="envelope">
+    Email testing service for development. Free tier available at [mailtrap.io](https://mailtrap.io).
+  </Card>
+</CardGroup>
+
+## System Requirements Summary
+
+| Component | Minimum Version | Recommended |
+|-----------|----------------|-------------|
+| PHP | 8.2 | 8.3+ |
+| Composer | 2.0 | 2.7+ |
+| Node.js | 18.x | 20.x LTS |
+| MySQL | 8.0 | 8.0+ |
+| Git | 2.x | Latest |
+
+## Operating System
+
+NutriFit can run on any OS that supports PHP and Node.js:
+
+- **Linux** (Ubuntu 22.04+, Debian 11+, etc.)
+- **macOS** (12.0 Monterey or higher)
+- **Windows** (Windows 10/11 with WSL2 recommended)
+
+<Note>
+For Windows users, using WSL2 (Windows Subsystem for Linux) provides the best development experience.
+</Note>
+
+## Next Steps
+
+Once you've verified all requirements are met, proceed to the installation:
+
+<CardGroup cols={2}>
+  <Card title="Quick Setup" icon="bolt" href="/installation/quick-setup">
+    One-command installation for rapid setup
+  </Card>
+  <Card title="Manual Setup" icon="terminal" href="/installation/manual-setup">
+    Step-by-step installation with full control
+  </Card>
+</CardGroup>

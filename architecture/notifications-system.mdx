@@ -1,0 +1,792 @@
+---
+title: Notifications System
+description: Queue-based email notification architecture, types, and implementation in NutriFit
+---
+
+## Overview
+
+NutriFit implements a **robust asynchronous notification system** using Laravel's queue infrastructure. All email notifications are dispatched to a queue and processed by background workers, ensuring:
+
+- ⚡ **Fast HTTP responses** - Users don't wait for emails to send
+- 🔄 **Automatic retries** - Failed emails are retried automatically
+- 📊 **Job tracking** - Monitor notification delivery status
+- 🎯 **Scalability** - Handle high email volumes efficiently
+
+## Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  User Action (Web/Livewire)                 │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│               Business Logic (Controller/Model)             │
+│              $user->notify(new WelcomeNotification())       │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Queue Dispatcher                         │
+│              Job serialized to 'jobs' table                 │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Database (jobs table)                   │
+│   ┌─────────────────────────────────────────────────┐      │
+│   │ id | queue | payload | attempts | available_at │      │
+│   ├────┼───────┼─────────┼──────────┼──────────────┤      │
+│   │ 42 │default│{notify..}│    0     │  timestamp   │      │
+│   └─────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 Queue Worker (Background)                   │
+│              php artisan queue:work                         │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Notification Class (app/Notifications/)          │
+│                  toMail() method executed                   │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    SMTP Server                              │
+│        (Mailtrap dev / SMTP production)                     │
+└─────────────────────────────────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  User's Email Inbox                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Queue Configuration
+
+### Queue Driver: Database
+
+**Configuration**: `config/queue.php`
+
+```php
+'default' => env('QUEUE_CONNECTION', 'database'),
+
+'connections' => [
+    'database' => [
+        'driver' => 'database',
+        'connection' => env('DB_QUEUE_CONNECTION'), // Uses default DB
+        'table' => 'jobs',
+        'queue' => 'default',
+        'retry_after' => 90, // Seconds before job is retried
+        'after_commit' => false,
+    ],
+],
+```
+
+**Why Database Queue?**
+- ✅ No additional infrastructure (Redis, Beanstalkd)
+- ✅ Transactional safety with database operations
+- ✅ Easy monitoring via database queries
+- ✅ Perfect for small to medium traffic
+
+### Database Tables
+
+#### jobs
+
+**Purpose**: Store pending notification jobs
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | bigint | Job ID |
+| `queue` | string | Queue name (default) |
+| `payload` | longtext | Serialized notification data |
+| `attempts` | tinyint | Number of processing attempts |
+| `reserved_at` | int | When worker picked up job |
+| `available_at` | int | When job becomes available |
+| `created_at` | int | Job creation timestamp |
+
+**Migration**: `database/migrations/2025_10_28_193455_create_jobs_table.php`
+
+#### failed_jobs
+
+**Purpose**: Log permanently failed notifications
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | bigint | Failed job ID |
+| `uuid` | string | Unique identifier |
+| `connection` | text | Queue connection |
+| `queue` | text | Queue name |
+| `payload` | longtext | Job data |
+| `exception` | longtext | Error stack trace |
+| `failed_at` | timestamp | Failure timestamp |
+
+### Environment Configuration
+
+**File**: `.env`
+
+```env
+# Queue Configuration
+QUEUE_CONNECTION=database
+
+# Mail Configuration (Development)
+MAIL_MAILER=smtp
+MAIL_HOST=sandbox.smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=your_mailtrap_username
+MAIL_PASSWORD=your_mailtrap_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@nutrifit.com"
+MAIL_FROM_NAME="${APP_NAME}"
+
+# Mail Configuration (Production)
+# MAIL_HOST=smtp.gmail.com
+# MAIL_PORT=587
+# MAIL_USERNAME=your-email@gmail.com
+# MAIL_PASSWORD=your-app-password
+```
+
+## Notification Classes
+
+NutriFit includes **16 notification classes** in `app/Notifications/`:
+
+### User Lifecycle Notifications
+
+#### 1. WelcomeNotification
+
+**Trigger**: User registration  
+**Recipient**: New user  
+**Purpose**: Welcome message with platform overview
+
+**File**: `app/Notifications/WelcomeNotification.php`
+
+```php
+namespace App\Notifications;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
+
+class WelcomeNotification extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function via(object $notifiable): array
+    {
+        return ['mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('🎉 ¡Bienvenido a NutriFit!')
+            ->greeting('¡Hola ' . $notifiable->name . '!')
+            ->line('¡Gracias por registrarte en NutriFit!')
+            ->line('✅ Agendar citas con nutricionistas profesionales')
+            ->line('✅ Mantener tu historial clínico organizado')
+            ->line('✅ Recibir seguimiento continuo de tu progreso')
+            ->action('Explorar NutriFit', url('/paciente/dashboard'))
+            ->salutation('¡Bienvenido al equipo! ' . config('app.name'));
+    }
+}
+```
+
+**Dispatched in**: `app/Listeners/SendWelcomeNotification.php`
+
+```php
+public function handle(Registered $event): void
+{
+    $event->user->notify(new WelcomeNotification());
+}
+```
+
+#### 2. VerifyEmailNotification
+
+**Trigger**: Registration or manual verification request  
+**Recipient**: User with unverified email  
+**Purpose**: Email verification link
+
+**Custom Override** in `app/Models/User.php`:
+```php
+public function sendEmailVerificationNotification()
+{
+    $this->notify(new \App\Notifications\VerifyEmailNotification);
+}
+```
+
+#### 3. PasswordChangedNotification
+
+**Trigger**: User updates password  
+**Recipient**: User  
+**Purpose**: Security notification of password change
+
+#### 4. ResetPasswordNotification
+
+**Trigger**: User requests password reset  
+**Recipient**: User  
+**Purpose**: Password reset link
+
+**Custom Override** in `app/Models/User.php`:
+```php
+public function sendPasswordResetNotification($token)
+{
+    $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+}
+```
+
+### Account Management Notifications
+
+#### 5. UserAccountEnabledNotification
+
+**Trigger**: Admin activates user account  
+**Recipient**: User  
+**Purpose**: Inform user their account is now active
+
+#### 6. UserAccountDisabledNotification
+
+**Trigger**: Admin deactivates user account  
+**Recipient**: User  
+**Purpose**: Inform user their account is suspended
+
+#### 7. PersonalDataCreatedNotification
+
+**Trigger**: Admin/Nutritionist creates personal data for user  
+**Recipient**: User  
+**Purpose**: Notify user their profile was completed
+
+### Appointment Lifecycle Notifications
+
+#### 8. AppointmentCreatedForPatientNotification
+
+**Trigger**: New appointment created  
+**Recipient**: Patient  
+**Purpose**: Confirm appointment details
+
+**File**: `app/Notifications/AppointmentCreatedForPatientNotification.php`
+
+```php
+class AppointmentCreatedForPatientNotification extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(
+        public Appointment $appointment
+    ) {}
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $appointmentDate = $this->appointment->start_time->format('d/m/Y');
+        $appointmentTime = $this->appointment->start_time->format('H:i');
+        $nutricionistaName = $this->appointment->nutricionista->name;
+
+        return (new MailMessage)
+            ->subject('✅ Cita Confirmada - NutriFit')
+            ->greeting('¡Hola ' . $notifiable->name . '!')
+            ->line('Tu cita ha sido agendada exitosamente.')
+            ->line('**Nutricionista:** ' . $nutricionistaName)
+            ->line('**Fecha:** ' . $appointmentDate)
+            ->line('**Hora:** ' . $appointmentTime)
+            ->line('**Tipo:** ' . $this->getAppointmentTypeLabel())
+            ->action('Ver Mi Cita', url('/paciente/citas/' . $this->appointment->id))
+            ->line('Te esperamos en tu cita.');
+    }
+    
+    private function getAppointmentTypeLabel(): string
+    {
+        return match($this->appointment->appointment_type) {
+            'primera_vez' => 'Primera Consulta',
+            'seguimiento' => 'Consulta de Seguimiento',
+            'control' => 'Control',
+            default => 'Consulta',
+        };
+    }
+}
+```
+
+**Dispatched in**: `PacienteController::storeAppointment()`
+
+```php
+$appointment = Appointment::create($validated);
+
+// Send notification to patient
+$paciente->notify(new AppointmentCreatedForPatientNotification($appointment));
+
+// Send notification to nutritionist
+$nutricionista->notify(new AppointmentCreatedNotification($appointment));
+```
+
+#### 9. AppointmentCreatedNotification
+
+**Trigger**: New appointment created  
+**Recipient**: Nutritionist  
+**Purpose**: Inform nutritionist of new appointment
+
+#### 10. AppointmentConfirmedForPatient
+
+**Trigger**: Nutritionist confirms appointment  
+**Recipient**: Patient  
+**Purpose**: Appointment confirmation
+
+#### 11. AppointmentReminderNotification
+
+**Trigger**: Scheduled task (24 hours before appointment)  
+**Recipient**: Both patient and nutritionist  
+**Purpose**: Reminder notification
+
+**File**: `app/Notifications/AppointmentReminderNotification.php`
+
+```php
+class AppointmentReminderNotification extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(
+        public Appointment $appointment
+    ) {}
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $appointmentDate = $this->appointment->start_time->format('d/m/Y');
+        $appointmentTime = $this->appointment->start_time->format('H:i');
+        
+        // Determine if recipient is patient or nutritionist
+        $isPaciente = $notifiable->role->name === 'paciente';
+        $otherPerson = $isPaciente 
+            ? 'Dr(a). ' . $this->appointment->nutricionista->name
+            : $this->appointment->paciente->name;
+
+        return (new MailMessage)
+            ->subject('⏰ Recordatorio: Cita Mañana - NutriFit')
+            ->greeting('¡Hola ' . $notifiable->name . '!')
+            ->line('Te recordamos que tienes una cita mañana.')
+            ->line('**' . ($isPaciente ? 'Nutricionista' : 'Paciente') . ':** ' . $otherPerson)
+            ->line('**Fecha:** ' . $appointmentDate)
+            ->line('**Hora:** ' . $appointmentTime)
+            ->action('Ver Detalles', url($isPaciente ? '/paciente/citas' : '/nutricionista/dashboard'))
+            ->line('Por favor, llega puntual a tu cita.');
+    }
+}
+```
+
+**Scheduled Command**: `app/Console/Commands/SendAppointmentReminders.php`
+
+```php
+protected $signature = 'appointments:send-reminders';
+
+public function handle()
+{
+    $tomorrow = now()->addDay();
+    
+    $appointments = Appointment::whereDate('start_time', $tomorrow->toDateString())
+        ->whereHas('appointmentState', fn($q) => $q->where('name', 'confirmada'))
+        ->with(['paciente', 'nutricionista'])
+        ->get();
+    
+    foreach ($appointments as $appointment) {
+        $appointment->paciente->notify(new AppointmentReminderNotification($appointment));
+        $appointment->nutricionista->notify(new AppointmentReminderNotification($appointment));
+    }
+    
+    $this->info("Sent {$appointments->count()} appointment reminders.");
+}
+```
+
+**Scheduled in**: `routes/console.php` or `app/Console/Kernel.php`
+
+```php
+Schedule::command('appointments:send-reminders')->dailyAt('09:00');
+```
+
+#### 12. AppointmentRescheduledNotification
+
+**Trigger**: Nutritionist reschedules appointment  
+**Recipient**: Patient  
+**Purpose**: Notify of new appointment time
+
+#### 13. AppointmentCancelledByPatient
+
+**Trigger**: Patient cancels appointment  
+**Recipient**: Nutritionist  
+**Purpose**: Inform nutritionist of cancellation
+
+#### 14. AppointmentCancelledByNutricionista
+
+**Trigger**: Nutritionist cancels appointment  
+**Recipient**: Patient  
+**Purpose**: Inform patient of cancellation
+
+### Medical Attention Notifications
+
+#### 15. AttentionCompletedNotification
+
+**Trigger**: Nutritionist completes medical attention record  
+**Recipient**: Patient  
+**Purpose**: Notify patient that consultation is documented
+
+### Contact Form Notification
+
+#### 16. ContactFormNotification
+
+**Trigger**: User submits contact form  
+**Recipient**: Admin/System  
+**Purpose**: Forward contact inquiry to admin
+
+## Notification Dispatch Patterns
+
+### 1. Direct Dispatch
+
+```php
+use App\Notifications\WelcomeNotification;
+
+$user->notify(new WelcomeNotification());
+```
+
+### 2. Event Listener Dispatch
+
+**Event**: `Illuminate\Auth\Events\Registered`
+
+**Listener**: `app/Listeners/SendWelcomeNotification.php`
+
+```php
+namespace App\Listeners;
+
+use Illuminate\Auth\Events\Registered;
+use App\Notifications\WelcomeNotification;
+
+class SendWelcomeNotification
+{
+    public function handle(Registered $event): void
+    {
+        $event->user->notify(new WelcomeNotification());
+    }
+}
+```
+
+**Registration**: `app/Providers/EventServiceProvider.php`
+
+```php
+protected $listen = [
+    Registered::class => [
+        SendWelcomeNotification::class,
+    ],
+];
+```
+
+### 3. Model Observer Dispatch
+
+```php
+class AppointmentObserver
+{
+    public function created(Appointment $appointment)
+    {
+        $appointment->paciente->notify(
+            new AppointmentCreatedForPatientNotification($appointment)
+        );
+    }
+}
+```
+
+### 4. Scheduled Command Dispatch
+
+See **AppointmentReminderNotification** example above.
+
+## Queue Worker Management
+
+### Starting the Worker
+
+**Development**:
+```bash
+php artisan queue:work
+```
+
+**With Options**:
+```bash
+php artisan queue:work --tries=3 --timeout=60
+```
+
+**Specific Queue**:
+```bash
+php artisan queue:work --queue=emails,default
+```
+
+### Monitoring
+
+**Check Queue Status**:
+```bash
+php artisan queue:monitor database:default --max=100
+```
+
+**View Failed Jobs**:
+```bash
+php artisan queue:failed
+```
+
+**Retry Failed Jobs**:
+```bash
+# Retry all
+php artisan queue:retry all
+
+# Retry specific job
+php artisan queue:retry 5
+```
+
+**Flush Failed Jobs**:
+```bash
+php artisan queue:flush
+```
+
+### Production Worker (Supervisor)
+
+**Config**: `/etc/supervisor/conf.d/nutrifit-worker.conf`
+
+```ini
+[program:nutrifit-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/nutrifit/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/path/to/nutrifit/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+**Reload**:
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start nutrifit-worker:*
+```
+
+## Email Template Customization
+
+### Default Template Location
+
+Laravel uses `vendor/laravel/framework/src/Illuminate/Notifications/resources/views/email.blade.php`
+
+### Custom Template
+
+**Publish**:
+```bash
+php artisan vendor:publish --tag=laravel-mail
+```
+
+**Edit**: `resources/views/vendor/notifications/email.blade.php`
+
+**Customize**:
+```blade
+@component('mail::message')
+{{-- Header --}}
+# {{ $greeting }}
+
+{{-- Intro Lines --}}
+@foreach ($introLines as $line)
+{{ $line }}
+
+@endforeach
+
+{{-- Action Button --}}
+@isset($actionText)
+@component('mail::button', ['url' => $actionUrl, 'color' => $color ?? 'primary'])
+{{ $actionText }}
+@endcomponent
+@endisset
+
+{{-- Outro Lines --}}
+@foreach ($outroLines as $line)
+{{ $line }}
+
+@endforeach
+
+{{-- Salutation --}}
+{{ $salutation }}
+@endcomponent
+```
+
+## Testing Notifications
+
+### Unit Test
+
+```php
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\AppointmentCreatedForPatientNotification;
+
+test('appointment creation sends notification to patient', function () {
+    Notification::fake();
+    
+    $patient = User::factory()->create(['role_id' => 3]);
+    $nutritionist = User::factory()->create(['role_id' => 2]);
+    
+    $appointment = Appointment::create([
+        'paciente_id' => $patient->id,
+        'nutricionista_id' => $nutritionist->id,
+        'start_time' => now()->addDay(),
+        'appointment_state_id' => 1,
+    ]);
+    
+    $patient->notify(new AppointmentCreatedForPatientNotification($appointment));
+    
+    Notification::assertSentTo(
+        $patient,
+        AppointmentCreatedForPatientNotification::class,
+        fn ($notification) => $notification->appointment->id === $appointment->id
+    );
+});
+```
+
+### Email Preview (Mailtrap)
+
+**Development Setup**:
+1. Sign up at [mailtrap.io](https://mailtrap.io)
+2. Get SMTP credentials
+3. Update `.env`:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=sandbox.smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=your_username
+MAIL_PASSWORD=your_password
+```
+
+**Trigger Notification**:
+```bash
+php artisan tinker
+
+>>> $user = User::first();
+>>> $user->notify(new App\Notifications\WelcomeNotification());
+>>> exit
+
+php artisan queue:work
+```
+
+**Check**: Visit Mailtrap inbox to see email preview
+
+## Notification Performance
+
+### Metrics
+
+| Metric | Value | Optimization |
+|--------|-------|---------------|
+| **Avg. Queue Time** | < 2 seconds | Worker always running |
+| **Email Send Time** | 3-5 seconds | SMTP connection pooling |
+| **Retry Attempts** | 3 | Configurable per notification |
+| **Queue Throughput** | ~100 jobs/min | Scale with multiple workers |
+
+### Optimization Tips
+
+**1. Use Queue Priority**:
+```php
+class UrgentNotification extends Notification implements ShouldQueue
+{
+    public $queue = 'high-priority';
+}
+```
+
+**2. Eager Load Relationships**:
+```php
+$appointment = Appointment::with(['paciente', 'nutricionista'])->find($id);
+$appointment->paciente->notify(new SomeNotification($appointment));
+```
+
+**3. Rate Limiting** (if using external SMTP):
+```php
+use Illuminate\Support\Facades\RateLimiter;
+
+RateLimiter::attempt(
+    'send-email:' . $user->id,
+    $perMinute = 10,
+    fn() => $user->notify(new SomeNotification())
+);
+```
+
+## Troubleshooting
+
+### Issue: Emails not sending
+
+**Check**:
+```bash
+# 1. Verify queue connection
+php artisan queue:work --once
+
+# 2. Check failed jobs
+php artisan queue:failed
+
+# 3. View logs
+tail -f storage/logs/laravel.log
+```
+
+### Issue: Worker stops processing
+
+**Solution**: Use Supervisor (see above) or:
+```bash
+while true; do php artisan queue:work --stop-when-empty; sleep 1; done
+```
+
+### Issue: Jobs stuck in queue
+
+**Check**:
+```sql
+SELECT * FROM jobs WHERE attempts > 0;
+```
+
+**Clear**:
+```bash
+php artisan queue:clear
+```
+
+## Security Considerations
+
+### 1. Prevent Information Disclosure
+
+```php
+public function toMail(object $notifiable): MailMessage
+{
+    // ❌ DON'T include sensitive data
+    // ->line('Your password is: ' . $user->password)
+    
+    // ✅ DO include safe information
+    ->line('Your account email: ' . $notifiable->email);
+}
+```
+
+### 2. Rate Limit Notification Sends
+
+```php
+use Illuminate\Support\Facades\RateLimiter;
+
+public function sendNotification($user)
+{
+    if (RateLimiter::tooManyAttempts('notify:' . $user->id, 5)) {
+        return;
+    }
+    
+    $user->notify(new SomeNotification());
+    RateLimiter::hit('notify:' . $user->id, 60);
+}
+```
+
+### 3. Validate Recipients
+
+```php
+if ($user->hasVerifiedEmail() && $user->isActive()) {
+    $user->notify(new ImportantNotification());
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture/overview">
+    Full system architecture
+  </Card>
+  <Card title="Database Schema" icon="database" href="/architecture/database-schema">
+    Queue and job tables structure
+  </Card>
+  <Card title="Creating Notifications" icon="code" href="/api/notifications/overview">
+    Build custom notification classes
+  </Card>
+  <Card title="Task Scheduling" icon="clock" href="/maintenance/scheduled-tasks">
+    Set up appointment reminders
+  </Card>
+</CardGroup>

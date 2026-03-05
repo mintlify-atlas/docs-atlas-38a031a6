@@ -1,0 +1,532 @@
+---
+title: 'Clinical Records'
+description: 'Comprehensive guide to managing clinical attention records, anthropometric data, and PDF report generation'
+icon: 'notes-medical'
+---
+
+## Overview
+
+The clinical records system manages patient attention data, including anthropometric measurements, diagnoses, nutritional recommendations, and automated PDF report generation.
+
+<Note>
+Each appointment can have one associated attention record that captures comprehensive clinical data.
+</Note>
+
+## Attention Model
+
+The `Attention` model stores clinical consultation data:
+
+```php app/Models/Attention.php
+class Attention extends Model
+{
+    protected $fillable = [
+        'appointment_id',
+        'paciente_id',
+        'nutricionista_id',
+        'diagnosis',
+        'recommendations',
+    ];
+
+    public function appointment(): BelongsTo
+    {
+        return $this->belongsTo(Appointment::class, 'appointment_id');
+    }
+
+    public function paciente(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paciente_id');
+    }
+
+    public function nutricionista(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'nutricionista_id');
+    }
+
+    public function attentionData(): HasOne
+    {
+        return $this->hasOne(AttentionData::class, 'attention_id');
+    }
+}
+```
+
+### Data Structure
+
+<CardGroup cols={2}>
+  <Card title="Attention" icon="clipboard">
+    Core clinical notes: diagnosis and recommendations
+  </Card>
+  <Card title="AttentionData" icon="ruler">
+    Detailed anthropometric measurements and calculations
+  </Card>
+  <Card title="Appointment" icon="calendar">
+    Links to the appointment being attended
+  </Card>
+  <Card title="Patient/Nutritionist" icon="users">
+    Tracks who performed and received the attention
+  </Card>
+</CardGroup>
+
+## Creating Attention Records
+
+### Access Control
+
+Only the assigned nutritionist can create attention records:
+
+```php app/Http/Controllers/AttentionController.php
+public function create(Appointment $appointment)
+{
+    // Verificar que la cita pertenece al nutricionista autenticado
+    if ($appointment->nutricionista_id !== auth()->id()) {
+        abort(403, 'No tienes permiso para atender esta cita.');
+    }
+
+    // Verificar que la cita esté en estado pendiente
+    if ($appointment->appointmentState->name !== 'pendiente') {
+        return redirect()
+            ->route('nutricionista.appointments.show', $appointment)
+            ->with('error', 'Esta cita no puede ser atendida.');
+    }
+}
+```
+
+### Routes
+
+```php routes/web.php
+Route::middleware(['auth', 'verified', 'role:nutricionista'])
+    ->prefix('nutricionista')
+    ->name('nutricionista.')
+    ->group(function () {
+        // Gestión de atenciones
+        Route::get('/citas/{appointment}/atender', [AttentionController::class, 'create'])
+            ->name('attentions.create');
+        Route::post('/citas/{appointment}/atender', [AttentionController::class, 'store'])
+            ->name('attentions.store');
+        Route::get('/citas/{appointment}/editar-atencion', [AttentionController::class, 'edit'])
+            ->name('attentions.edit');
+        Route::put('/citas/{appointment}/editar-atencion', [AttentionController::class, 'update'])
+            ->name('attentions.update');
+    });
+```
+
+## Anthropometric Data
+
+The system captures comprehensive anthropometric measurements:
+
+### Basic Measurements
+
+<CardGroup cols={2}>
+  <Card title="Weight" icon="weight-scale">
+    Body weight in kilograms (20-300 kg)
+  </Card>
+  <Card title="Height" icon="ruler-vertical">
+    Height in centimeters (100-250 cm)
+  </Card>
+</CardGroup>
+
+### Body Measurements
+
+- **Waist** (cintura): 30-200 cm
+- **Hip** (cadera): 30-200 cm
+- **Neck** (cuello): 20-100 cm
+- **Wrist** (muñeca): 10-30 cm
+- **Arm Contracted** (brazo contraído): 15-100 cm
+- **Arm Relaxed** (brazo relajado): 15-100 cm
+- **Thigh** (pierna): 30-150 cm
+- **Calf** (pantorrilla): 20-100 cm
+
+### Calculated Metrics
+
+<AccordionGroup>
+  <Accordion title="BMI (Body Mass Index)" icon="calculator">
+    Automatically calculated from weight and height
+  </Accordion>
+  
+  <Accordion title="Body Fat Percentage" icon="percentage">
+    Estimated body fat based on measurements
+  </Accordion>
+  
+  <Accordion title="TMB (Basal Metabolic Rate)" icon="fire">
+    Base caloric expenditure at rest (500-5000 kcal)
+  </Accordion>
+  
+  <Accordion title="TDEE (Total Daily Energy Expenditure)" icon="person-running">
+    Total calories burned including activity (500-10000 kcal)
+  </Accordion>
+  
+  <Accordion title="WHR (Waist-to-Hip Ratio)" icon="divide">
+    Waist circumference divided by hip circumference
+  </Accordion>
+  
+  <Accordion title="WHtR (Waist-to-Height Ratio)" icon="divide">
+    Waist circumference divided by height
+  </Accordion>
+  
+  <Accordion title="Frame Index" icon="skeleton">
+    Body frame size indicator
+  </Accordion>
+</AccordionGroup>
+
+## Nutritional Planning
+
+### Activity Levels
+
+<Tabs>
+  <Tab title="Sedentary">
+    Little to no exercise
+  </Tab>
+  <Tab title="Light">
+    Light exercise 1-3 days/week
+  </Tab>
+  <Tab title="Moderate">
+    Moderate exercise 3-5 days/week
+  </Tab>
+  <Tab title="Active">
+    Hard exercise 6-7 days/week
+  </Tab>
+  <Tab title="Very Active">
+    Very hard exercise & physical job
+  </Tab>
+</Tabs>
+
+### Nutrition Goals
+
+<CardGroup cols={3}>
+  <Card title="Deficit" icon="arrow-down">
+    Weight loss
+  </Card>
+  <Card title="Maintenance" icon="equals">
+    Weight maintenance
+  </Card>
+  <Card title="Surplus" icon="arrow-up">
+    Weight gain / muscle building
+  </Card>
+</CardGroup>
+
+### Macronutrient Distribution
+
+The system calculates and tracks:
+
+- **Target Calories**: Total daily caloric goal
+- **Protein**: Grams and percentage
+- **Fat**: Grams and percentage
+- **Carbohydrates**: Grams and percentage
+
+### Food Equivalents System
+
+Nutritionists can prescribe food portions using the equivalents system:
+
+<CardGroup cols={2}>
+  <Card title="Cereales" icon="wheat">
+    Grains and cereals
+  </Card>
+  <Card title="Verduras" icon="carrot">
+    Vegetables
+  </Card>
+  <Card title="Frutas" icon="apple-whole">
+    Fruits
+  </Card>
+  <Card title="Lácteo" icon="cow">
+    Dairy products
+  </Card>
+  <Card title="Animal" icon="drumstick-bite">
+    Animal proteins
+  </Card>
+  <Card title="Aceites" icon="oil-can">
+    Oils and fats
+  </Card>
+  <Card title="Grasas con Proteína" icon="avocado">
+    Protein-rich fats
+  </Card>
+  <Card title="Leguminosas" icon="seedling">
+    Legumes and beans
+  </Card>
+</CardGroup>
+
+## Data Validation
+
+The system enforces strict validation on all measurements:
+
+```php app/Http/Controllers/AttentionController.php
+$validated = $request->validate([
+    // Medidas básicas (obligatorias)
+    'weight' => 'required|numeric|min:20|max:300',
+    'height' => 'required|numeric|min:100|max:250',
+    // Medidas corporales (obligatorias)
+    'waist' => 'required|numeric|min:30|max:200',
+    'hip' => 'required|numeric|min:30|max:200',
+    'neck' => 'required|numeric|min:20|max:100',
+    // ... más validaciones
+    'activity_level' => 'required|in:sedentary,light,moderate,active,very_active',
+    'nutrition_goal' => 'required|in:deficit,maintenance,surplus',
+    'bmi' => 'required|numeric|min:10|max:60',
+    'diagnosis' => 'required|string|max:5000',
+    'recommendations' => 'required|string|max:5000',
+]);
+```
+
+<Warning>
+All measurements have realistic min/max constraints to prevent data entry errors.
+</Warning>
+
+## Storing Clinical Data
+
+The storage process uses database transactions:
+
+```php app/Http/Controllers/AttentionController.php
+try {
+    DB::beginTransaction();
+
+    // Crear el registro de atención
+    $attention = Attention::create([
+        'appointment_id' => $appointment->id,
+        'paciente_id' => $appointment->paciente_id,
+        'nutricionista_id' => $appointment->nutricionista_id,
+        'diagnosis' => $validated['diagnosis'],
+        'recommendations' => $validated['recommendations'],
+    ]);
+
+    // Crear los datos antropométricos
+    AttentionData::create([
+        'attention_id' => $attention->id,
+        'weight' => $validated['weight'],
+        'height' => $validated['height'],
+        // ... todos los datos
+    ]);
+
+    // Cambiar el estado de la cita a completada
+    $completedState = AppointmentState::where('name', 'completada')->first();
+    $appointment->update([
+        'appointment_state_id' => $completedState->id,
+    ]);
+
+    DB::commit();
+
+    // Enviar notificación al paciente
+    $appointment->paciente->notify(new AttentionCompletedNotification($attention));
+
+} catch (\Exception $e) {
+    DB::rollBack();
+    return redirect()->back()->with('error', 'Error al guardar la atención');
+}
+```
+
+<Check>
+When attention is saved, the appointment automatically changes to "completada" state.
+</Check>
+
+## PDF Report Generation
+
+The system generates professional PDF reports using DomPDF.
+
+### PDF Controller
+
+```php app/Http/Controllers/AttentionPdfController.php
+class AttentionPdfController extends Controller
+{
+    public function download(Appointment $appointment)
+    {
+        // Verificar que el usuario tenga permiso
+        $user = auth()->user();
+        
+        if ($user->role->name === 'nutricionista' 
+            && $appointment->nutricionista_id !== $user->id) {
+            abort(403, 'No tienes permiso para ver esta atención.');
+        }
+        
+        if ($user->role->name === 'paciente' 
+            && $appointment->paciente_id !== $user->id) {
+            abort(403, 'No tienes permiso para ver esta atención.');
+        }
+
+        // Cargar las relaciones necesarias
+        $appointment->load([
+            'paciente.personalData',
+            'nutricionista.personalData',
+            'attention.attentionData',
+            'appointmentState'
+        ]);
+
+        // Calcular el número de atención
+        $attentionNumber = Attention::where('paciente_id', $appointment->paciente_id)
+            ->where('created_at', '<=', $appointment->attention->created_at)
+            ->count();
+
+        // Preparar datos
+        $data = [
+            'appointment' => $appointment,
+            'attention' => $appointment->attention,
+            'attentionData' => $appointment->attention->attentionData,
+            'paciente' => $appointment->paciente,
+            'nutricionista' => $appointment->nutricionista,
+            'attentionNumber' => $attentionNumber,
+            'attentionDate' => Carbon::parse($appointment->attention->created_at)
+                ->format('d-m-Y'),
+        ];
+
+        // Generar el PDF
+        $pdf = Pdf::loadView('pdf.attention', $data);
+        $pdf->setPaper('a4', 'portrait');
+
+        // Nombre del archivo: NombrePaciente_Atencion1_14-01-2026.pdf
+        $pacienteName = str_replace(' ', '_', $appointment->paciente->name);
+        $fileName = "{$pacienteName}_Atencion{$attentionNumber}_{$data['attentionDate']}.pdf";
+
+        return $pdf->download($fileName);
+    }
+}
+```
+
+### PDF Routes
+
+<Tabs>
+  <Tab title="Nutritionist">
+    ```php routes/web.php
+    Route::get('/citas/{appointment}/pdf', 
+        [AttentionPdfController::class, 'download'])
+        ->name('attentions.pdf.download');
+    Route::get('/citas/{appointment}/pdf/ver', 
+        [AttentionPdfController::class, 'view'])
+        ->name('attentions.pdf.view');
+    ```
+  </Tab>
+  <Tab title="Patient">
+    ```php routes/web.php
+    Route::get('/citas/{appointment}/pdf', 
+        [AttentionPdfController::class, 'download'])
+        ->name('attentions.pdf.download');
+    Route::get('/citas/{appointment}/pdf/ver', 
+        [AttentionPdfController::class, 'view'])
+        ->name('attentions.pdf.view');
+    ```
+  </Tab>
+</Tabs>
+
+### PDF Features
+
+<CardGroup cols={2}>
+  <Card title="Download" icon="download">
+    Download PDF file to device
+  </Card>
+  <Card title="View in Browser" icon="eye">
+    Preview PDF without downloading
+  </Card>
+  <Card title="Professional Format" icon="file-pdf">
+    A4 portrait layout with branding
+  </Card>
+  <Card title="Complete Data" icon="list-check">
+    All measurements, calculations, and recommendations
+  </Card>
+</CardGroup>
+
+## Editing Records
+
+Nutritionists can edit attention records after creation:
+
+```php app/Http/Controllers/AttentionController.php
+public function update(Request $request, Appointment $appointment)
+{
+    // Verificar permisos y validar datos
+    try {
+        DB::beginTransaction();
+
+        // Actualizar el registro de atención
+        $appointment->attention->update([
+            'diagnosis' => $validated['diagnosis'],
+            'recommendations' => $validated['recommendations'],
+        ]);
+
+        // Actualizar los datos antropométricos
+        $appointment->attention->attentionData->update([
+            // Todos los datos actualizados
+        ]);
+
+        DB::commit();
+    } catch (\Exception $e) {
+        DB::rollBack();
+    }
+}
+```
+
+<Info>
+Editing maintains the original creation timestamp but updates all clinical data.
+</Info>
+
+## Patient History
+
+Patients can view their complete clinical history:
+
+### Patient Routes
+
+```php routes/web.php
+Route::middleware(['auth', 'verified', 'role:paciente', 'password.changed'])
+    ->prefix('paciente')
+    ->name('paciente.')
+    ->group(function () {
+        Route::get('/historial', [PacienteController::class, 'history'])
+            ->name('history');
+    });
+```
+
+### Nutritionist Patient View
+
+```php routes/web.php
+Route::middleware(['auth', 'verified', 'role:nutricionista'])
+    ->prefix('nutricionista')
+    ->name('nutricionista.')
+    ->group(function () {
+        Route::get('/pacientes/{patient}/historial', 
+            [NutricionistaController::class, 'patientHistory'])
+            ->name('patients.history');
+    });
+```
+
+## Notifications
+
+When attention is completed, the patient receives a detailed notification:
+
+```php app/Notifications/AttentionCompletedNotification.php
+public function toMail(object $notifiable): MailMessage
+{
+    $appointmentDate = $this->attention->appointment->start_time->format('d/m/Y');
+    $nutricionistaName = $this->attention->nutricionista->name;
+    $weight = $this->attention->attentionData->weight ?? 'N/A';
+    $bmi = $this->attention->attentionData->bmi ?? 'N/A';
+
+    return (new MailMessage)
+        ->subject('✅ Atención Nutricional Completada - NutriFit')
+        ->greeting('¡Hola ' . $notifiable->name . '!')
+        ->line('Tu atención nutricional ha sido completada exitosamente.')
+        ->line('**Nutricionista:** Dr(a). ' . $nutricionistaName)
+        ->line('**Fecha de atención:** ' . $appointmentDate)
+        ->line('**Peso registrado:** ' . $weight . ' kg')
+        ->line('**IMC:** ' . number_format($bmi, 2))
+        ->action('Ver Reporte Completo', 
+            url('/paciente/citas/' . $this->attention->appointment_id));
+}
+```
+
+## Data Privacy
+
+<Warning>
+Clinical records contain sensitive health information and must be protected according to data privacy regulations.
+</Warning>
+
+### Access Control
+
+- **Nutritionists**: Can only view/edit records for their own patients
+- **Patients**: Can only view their own records
+- **Administrators**: Have read-only access for oversight
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Appointments" icon="calendar" href="/features/appointments">
+    Learn about appointment scheduling
+  </Card>
+  <Card title="User Roles" icon="users" href="/features/user-roles">
+    Understand role-based access control
+  </Card>
+  <Card title="Notifications" icon="bell" href="/features/notifications">
+    Explore the notification system
+  </Card>
+</CardGroup>

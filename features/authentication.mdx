@@ -1,0 +1,309 @@
+---
+title: 'Authentication System'
+description: 'Learn about NutriFit authentication powered by Laravel Fortify including email verification, two-factor authentication, and password management'
+icon: 'lock'
+---
+
+## Overview
+
+NutriFit implements a robust authentication system powered by **Laravel Fortify**, providing secure user registration, login, password management, and two-factor authentication (2FA).
+
+<Note>
+All authentication features follow Laravel's best security practices and include protection against common vulnerabilities.
+</Note>
+
+## Features
+
+The authentication system includes:
+
+- User registration with email verification
+- Secure login with rate limiting
+- Password reset and recovery
+- Two-factor authentication (2FA)
+- Email validation with DNS/MX checking
+- Data consent tracking
+- Social authentication (Google OAuth)
+
+## Registration
+
+### User Registration Flow
+
+New users register as **patients** by default (role_id: 3). The registration process includes:
+
+1. Email and password validation
+2. Data consent agreement
+3. Email verification requirement
+4. Welcome email after verification
+
+<CodeGroup>
+
+```php app/Actions/Fortify/CreateNewUser.php
+public function create(array $input): User
+{
+    Validator::make($input, [
+        'name' => ['required', 'string', 'max:255'],
+        'email' => [
+            'required',
+            'string',
+            'email',
+            'max:255',
+            Rule::unique(User::class),
+            new ValidEmailDomain(), // Validación DNS/MX
+        ],
+        'password' => $this->passwordRules(),
+        'data_consent' => ['required', 'accepted'],
+    ])->validate();
+
+    $user = User::create([
+        'name' => $input['name'],
+        'email' => $input['email'],
+        'password' => $input['password'],
+        'role_id' => 3,
+        'data_consent' => true,
+        'data_consent_at' => now(),
+    ]);
+
+    return $user;
+}
+```
+
+```php app/Actions/Fortify/PasswordValidationRules.php
+protected function passwordRules(): array
+{
+    return ['required', 'string', Password::default(), 'confirmed'];
+}
+```
+
+</CodeGroup>
+
+### Email Validation
+
+NutriFit uses the `ValidEmailDomain` rule to verify that email addresses have valid DNS and MX records, preventing fake or disposable email addresses.
+
+## Email Verification
+
+Email verification is **required** for all users before accessing protected features.
+
+<Steps>
+  <Step title="User Registers">
+    User completes registration form with email and password
+  </Step>
+  <Step title="Verification Email Sent">
+    System sends verification email using `VerifyEmailNotification`
+  </Step>
+  <Step title="User Clicks Link">
+    User clicks verification link in email
+  </Step>
+  <Step title="Email Confirmed">
+    Account is verified and welcome email is sent
+  </Step>
+</Steps>
+
+### Route Protection
+
+Routes requiring verified email use the `verified` middleware:
+
+```php routes/web.php
+Route::middleware(['auth', 'verified', 'role:paciente'])
+    ->prefix('paciente')
+    ->name('paciente.')
+    ->group(function () {
+        Route::get('/dashboard', [PacienteController::class, 'index'])
+            ->name('dashboard');
+        // More routes...
+    });
+```
+
+## Two-Factor Authentication (2FA)
+
+### Enabling 2FA
+
+Users can enable two-factor authentication from their settings page at `/settings/two-factor`.
+
+<Info>
+2FA uses TOTP (Time-based One-Time Password) compatible with apps like Google Authenticator, Authy, and 1Password.
+</Info>
+
+### 2FA Configuration
+
+```php config/fortify.php
+'features' => [
+    Features::registration(),
+    Features::resetPasswords(),
+    Features::emailVerification(),
+    Features::twoFactorAuthentication([
+        'confirm' => true,
+        'confirmPassword' => true,
+    ]),
+],
+```
+
+### 2FA Setup Process
+
+<CodeGroup>
+
+```php app/Livewire/Settings/TwoFactor.php
+public function enable(EnableTwoFactorAuthentication $enableTwoFactorAuthentication): void
+{
+    $enableTwoFactorAuthentication(auth()->user());
+
+    if (! $this->requiresConfirmation) {
+        $this->twoFactorEnabled = auth()->user()->hasEnabledTwoFactorAuthentication();
+    }
+
+    $this->loadSetupData();
+    $this->showModal = true;
+}
+
+public function confirmTwoFactor(ConfirmTwoFactorAuthentication $confirmTwoFactorAuthentication): void
+{
+    $this->validate();
+    $confirmTwoFactorAuthentication(auth()->user(), $this->code);
+    $this->closeModal();
+    $this->twoFactorEnabled = true;
+}
+```
+
+</CodeGroup>
+
+### Recovery Codes
+
+When 2FA is enabled, users receive recovery codes that can be used if they lose access to their authenticator app.
+
+<Warning>
+Recovery codes should be stored securely. Each code can only be used once.
+</Warning>
+
+## Password Management
+
+### Password Reset Flow
+
+1. User requests password reset
+2. System sends reset email using `ResetPasswordNotification`
+3. User clicks link and sets new password
+4. System sends confirmation email using `PasswordChangedNotification`
+
+### Password Requirements
+
+Passwords must meet Laravel's default password rules:
+- Minimum 8 characters
+- Must be confirmed (entered twice)
+- Cannot be commonly used passwords
+
+### Forced Password Change
+
+New patients created by administrators receive a default password and must change it on first login.
+
+```php routes/web.php
+// Ruta para cambiar contraseña por defecto (sin middleware password.changed)
+Route::middleware(['auth', 'role:paciente'])->prefix('paciente')->name('paciente.')->group(function () {
+    Route::get('/cambiar-contrasena', [PasswordController::class, 'showChangePassword'])
+        ->name('change-default-password');
+    Route::post('/cambiar-contrasena', [PasswordController::class, 'updatePassword'])
+        ->name('change-default-password.update');
+});
+```
+
+## Social Authentication
+
+### Google OAuth
+
+NutriFit supports Google OAuth for patient registration and login.
+
+```php routes/web.php
+Route::get('auth/google', [SocialiteController::class, 'redirectToGoogle'])
+    ->name('google.login');
+Route::get('auth/google/callback', [SocialiteController::class, 'handleGoogleCallback']);
+Route::get('auth/google/consent', [SocialiteController::class, 'showConsentForm'])
+    ->name('google.consent');
+```
+
+### OAuth Flow
+
+<Steps>
+  <Step title="User Clicks Google Login">
+    User is redirected to Google's OAuth consent screen
+  </Step>
+  <Step title="Google Authentication">
+    User authenticates with Google
+  </Step>
+  <Step title="Data Consent">
+    User must accept NutriFit's data processing consent
+  </Step>
+  <Step title="Account Creation">
+    Account is created or linked and user is logged in
+  </Step>
+</Steps>
+
+## Rate Limiting
+
+Login attempts are rate-limited to prevent brute force attacks:
+
+```php config/fortify.php
+'limiters' => [
+    'login' => 'login',
+    'two-factor' => 'two-factor',
+],
+```
+
+Default: **5 login attempts per minute** per email/IP combination.
+
+## Notifications
+
+The authentication system sends several email notifications:
+
+<CardGroup cols={2}>
+  <Card title="Welcome Email" icon="envelope">
+    Sent after email verification
+  </Card>
+  <Card title="Email Verification" icon="check-circle">
+    Sent on registration
+  </Card>
+  <Card title="Password Reset" icon="key">
+    Sent when password reset requested
+  </Card>
+  <Card title="Password Changed" icon="shield-check">
+    Sent after password change
+  </Card>
+  <Card title="Account Enabled" icon="user-check">
+    Sent when admin enables account
+  </Card>
+  <Card title="Account Disabled" icon="user-slash">
+    Sent when admin disables account
+  </Card>
+</CardGroup>
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Email Validation">
+    All email addresses are validated against DNS/MX records to prevent fake emails.
+  </Accordion>
+  
+  <Accordion title="Password Hashing">
+    Passwords are hashed using bcrypt with Laravel's default cost factor.
+  </Accordion>
+  
+  <Accordion title="CSRF Protection">
+    All forms include CSRF token validation.
+  </Accordion>
+  
+  <Accordion title="Rate Limiting">
+    Login attempts are limited to prevent brute force attacks.
+  </Accordion>
+  
+  <Accordion title="Session Management">
+    Secure session handling with httpOnly cookies.
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="User Roles" icon="users" href="/features/user-roles">
+    Learn about role-based access control
+  </Card>
+  <Card title="Notifications" icon="bell" href="/features/notifications">
+    Explore the notification system
+  </Card>
+</CardGroup>

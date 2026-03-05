@@ -1,0 +1,171 @@
+---
+title: "Notifications Overview"
+description: "Notification system architecture, queue workers, and mail configuration for NutriFit"
+---
+
+## Overview
+
+NutriFit uses Laravel's notification system to send email notifications to users throughout their journey on the platform. All notifications implement the `ShouldQueue` interface, meaning they are processed asynchronously through Laravel's queue system for improved performance.
+
+## Architecture
+
+### Notification System
+
+The notification system is built on Laravel's native notification framework with the following characteristics:
+
+- **Namespace**: `App\Notifications`
+- **Base Class**: `Illuminate\Notifications\Notification`
+- **Queue Support**: All notifications implement `ShouldQueue` interface
+- **Delivery Channel**: Email (`mail`)
+- **Mail Driver**: Configurable via `MAIL_MAILER` environment variable (default: `log`)
+
+### Queue Configuration
+
+**Default Queue Connection**: `database` (configured via `QUEUE_CONNECTION` env variable)
+
+**Queue Settings**:
+```php
+[
+    'driver' => 'database',
+    'connection' => env('DB_QUEUE_CONNECTION'),
+    'table' => 'jobs',
+    'queue' => 'default',
+    'retry_after' => 90, // seconds
+    'after_commit' => false,
+]
+```
+
+**Queue Workers**: To process queued notifications, run:
+```bash
+php artisan queue:work
+```
+
+For production environments, use Laravel Horizon or Supervisor to keep queue workers running.
+
+## Mail Configuration
+
+### Supported Mail Drivers
+
+- **SMTP** (default port: 2525)
+- **SES** (Amazon Simple Email Service)
+- **Postmark**
+- **Resend**
+- **Sendmail**
+- **Log** (development)
+- **Array** (testing)
+
+### SMTP Configuration
+
+Configure via environment variables:
+```bash
+MAIL_MAILER=smtp
+MAIL_HOST=127.0.0.1
+MAIL_PORT=2525
+MAIL_USERNAME=your_username
+MAIL_PASSWORD=your_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=noreply@nutrifit.com
+MAIL_FROM_NAME="NutriFit"
+```
+
+### Mail From Address
+
+**Default Configuration**:
+```php
+[
+    'from' => [
+        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+        'name' => env('MAIL_FROM_NAME', 'Example'),
+    ],
+]
+```
+
+## Notification Categories
+
+NutriFit notifications are organized into two main categories:
+
+### Appointment Notifications
+
+Notifications related to appointment lifecycle events:
+- Appointment created
+- Appointment confirmed
+- Appointment cancelled (by patient or nutritionist)
+- Appointment rescheduled
+- Appointment reminder (24 hours before)
+- Attention completed
+
+[View Appointment Notifications →](/api/notifications/appointment-notifications)
+
+### User Notifications
+
+Notifications related to user account management:
+- Welcome email
+- Email verification
+- Password reset
+- Password changed
+- Account enabled
+- Account disabled
+
+[View User Notifications →](/api/notifications/user-notifications)
+
+## Usage Example
+
+### Sending a Notification
+
+```php
+use App\Notifications\WelcomeNotification;
+
+// Send to a user
+$user->notify(new WelcomeNotification());
+
+// Send to multiple users
+Notification::send($users, new WelcomeNotification());
+```
+
+### Queueing Notifications
+
+Since all NutriFit notifications implement `ShouldQueue`, they are automatically queued:
+
+```php
+// This notification will be queued automatically
+$user->notify(new AppointmentCreatedNotification($appointment));
+```
+
+### Notification Delivery Channels
+
+All notifications currently use the `mail` channel. To add additional channels (database, SMS, etc.), update the `via()` method:
+
+```php
+public function via(object $notifiable): array
+{
+    return ['mail', 'database']; // Add database notifications
+}
+```
+
+## Testing
+
+For testing notifications without sending actual emails:
+
+```php
+// In your test
+Notification::fake();
+
+// Perform action that sends notification
+$user->notify(new WelcomeNotification());
+
+// Assert notification was sent
+Notification::assertSentTo($user, WelcomeNotification::class);
+```
+
+## Localization
+
+All notification content is currently in Spanish. Email subjects and content use Spanish language with appropriate emojis for visual context.
+
+## Best Practices
+
+1. **Always queue notifications** to avoid blocking user requests
+2. **Handle queue failures** with retry logic and dead letter queues
+3. **Monitor queue workers** in production using Laravel Horizon or similar tools
+4. **Test notification content** before deploying to production
+5. **Use notification preferences** to allow users to opt-out of certain notifications
+6. **Log notification failures** for debugging and monitoring

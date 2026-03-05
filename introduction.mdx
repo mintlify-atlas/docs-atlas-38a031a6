@@ -1,0 +1,190 @@
+---
+title: Introduction to NutriFit
+description: A modern nutrition management SaaS platform built with Laravel 12, Livewire 3, and Tailwind CSS 4
+---
+
+## What is NutriFit?
+
+**NutriFit** is a comprehensive web-based nutrition management platform designed to streamline the relationship between nutritionists and patients. Built with modern technologies and best practices, NutriFit transforms traditional nutrition practice management by automating appointment scheduling, patient tracking, and communication workflows.
+
+<Note>
+NutriFit was developed as a real-world thesis project for a bachelor's degree in Information Technology Engineering and is actively used in a nutrition clinic.
+</Note>
+
+## Who is NutriFit For?
+
+NutriFit serves three primary user types:
+
+<CardGroup cols={3}>
+  <Card title="Administrators" icon="shield-halved">
+    Complete system control, user management, and analytics oversight
+  </Card>
+  <Card title="Nutritionists" icon="user-doctor">
+    Patient management, appointment scheduling, clinical records, and nutrition plans
+  </Card>
+  <Card title="Patients" icon="user">
+    Self-service appointment booking, medical history access, and nutrition plan tracking
+  </Card>
+</CardGroup>
+
+## Key Benefits
+
+### For Nutritionists
+
+- **Automated Scheduling**: Intelligent appointment system with real-time availability checks
+- **Comprehensive Patient Records**: Complete clinical history with anthropometric data, diagnoses, and treatment plans
+- **PDF Report Generation**: Professional nutrition reports with DomPDF integration
+- **Reduced Administrative Burden**: Automated email notifications and reminders
+
+### For Patients
+
+- **24/7 Appointment Booking**: Schedule appointments anytime without phone calls
+- **Automated Reminders**: Email notifications 24 hours before appointments
+- **Medical History Access**: View complete consultation history and nutrition plans
+- **Transparent Communication**: Real-time appointment status updates
+
+### For Clinic Administrators
+
+- **Centralized Management**: Single dashboard for all nutritionists and patients
+- **User Administration**: Complete control over user accounts and permissions
+- **System Analytics**: Statistics and metrics for operational insights
+- **Multi-nutritionist Support**: Scalable architecture for growing practices
+
+## Real-World Impact
+
+NutriFit has delivered measurable improvements in nutrition practice management:
+
+<CardGroup cols={2}>
+  <Card title="70% Time Savings" icon="clock">
+    Dramatic reduction in administrative time through automation
+  </Card>
+  <Card title="Zero Schedule Conflicts" icon="calendar-check">
+    Intelligent availability system prevents booking overlaps
+  </Card>
+  <Card title="Reduced No-Shows" icon="envelope">
+    Automated 24-hour reminders decrease missed appointments
+  </Card>
+  <Card title="Complete Traceability" icon="timeline">
+    Full longitudinal patient history for better care decisions
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+### Backend Technologies
+
+NutriFit is built on a modern PHP stack optimized for performance and developer experience:
+
+| Technology | Version | Purpose |
+|-----------|---------|--------|
+| **PHP** | 8.2+ | Core language with modern features |
+| **Laravel** | 12.0 | MVC framework and ecosystem |
+| **Livewire** | 3.x | Reactive components without JavaScript |
+| **Laravel Fortify** | 1.30 | Authentication and 2FA |
+| **SQLite/MySQL** | Latest | Database layer (SQLite dev, MySQL prod) |
+| **DomPDF** | 3.1 | PDF report generation |
+| **Laravel Socialite** | 5.23 | OAuth integration (Google login) |
+
+### Frontend Technologies
+
+| Technology | Version | Purpose |
+|-----------|---------|--------|
+| **Tailwind CSS** | 4.0 | Utility-first CSS framework |
+| **Livewire Flux** | 2.1 | Premium UI component library |
+| **Vite** | 7.0 | Modern build tool with HMR |
+| **Alpine.js** | Via Livewire | Lightweight JavaScript interactions |
+| **Axios** | 1.7 | HTTP client |
+
+### Development Tools
+
+- **Pest**: Modern PHP testing framework
+- **Laravel Pint**: Automatic code styling (PSR-12)
+- **Laravel Sail**: Docker development environment
+- **Concurrently**: Parallel process execution for development
+
+## Architecture Pattern
+
+<Note>
+NutriFit implements the **MVC (Model-View-Controller)** pattern enhanced with the **TALL Stack** (Tailwind, Alpine, Laravel, Livewire) for a modern, reactive user experience.
+</Note>
+
+The architecture consists of four distinct layers:
+
+### Presentation Layer
+- **Livewire Components**: Reactive, server-side rendered components
+- **Tailwind CSS**: Utility-first styling
+- **Flux UI Components**: Premium pre-built components
+
+### Application Layer
+- **Controllers**: Traditional HTTP request handling
+- **Fortify Actions**: Custom authentication workflows
+- **Middleware**: Request filtering and role-based access control
+
+### Domain Layer
+- **Eloquent Models**: Database entity representations
+- **Queue Notifications**: Asynchronous email processing
+- **Event Listeners**: Business logic triggers
+
+### Persistence Layer
+- **Database**: SQLite (development) or MySQL (production)
+- **Eloquent ORM**: Type-safe query builder
+
+## Multi-Role System
+
+NutriFit implements a comprehensive role-based access control system:
+
+| Role | Route Prefix | Access Level | Key Features |
+|------|-------------|--------------|-------------|
+| **Administrator** | `/administrador/*` | Full system control | User management, system settings, analytics |
+| **Nutritionist** | `/nutricionista/*` | Patient and appointment management | Schedule configuration, patient records, PDF generation |
+| **Patient** | `/paciente/*` | Self-service booking and history | Appointment booking, history viewing, profile management |
+
+See routes/web.php:54-160 for complete routing structure.
+
+## Notification System
+
+Automated email notifications keep all parties informed:
+
+- **Welcome emails** on registration
+- **Appointment confirmations** when booked
+- **24-hour reminders** before appointments (via scheduled command)
+- **Cancellation notices** for any party-initiated cancellations
+- **Password change confirmations** for security
+
+Notifications are queued for asynchronous processing using Laravel's queue system (see composer.json:38).
+
+## Project Background
+
+<Tip>
+This is a **real production system**, not a prototype. It was deployed to an active nutrition clinic with real patients as part of a university thesis project.
+</Tip>
+
+### Development Details
+
+- **Project Type**: Bachelor's thesis (Information Technology Engineering)
+- **Duration**: 16 weeks of intensive development
+- **Team**: 2-person team with specialized roles
+  - Technical Development: Full-stack implementation, database design, deployment
+  - Project Management: Requirements gathering, stakeholder coordination, documentation
+- **Methodology**: Agile/Scrum with weekly sprints and stakeholder reviews
+- **Deployment**: Live production environment with real users
+
+### Objectives Achieved
+
+✅ Complete digitization of clinic workflows  
+✅ 70% reduction in administrative time  
+✅ Automated notification system implementation  
+✅ Comprehensive patient tracking tools  
+✅ HIPAA-compliant data security  
+✅ Scalable multi-nutritionist architecture
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="stars" href="/features/authentication">
+    Discover all capabilities and modules
+  </Card>
+  <Card title="Get Started" icon="rocket" href="/getting-started">
+    Install and run NutriFit locally
+  </Card>
+</CardGroup>

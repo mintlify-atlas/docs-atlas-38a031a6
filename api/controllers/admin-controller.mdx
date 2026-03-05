@@ -1,0 +1,453 @@
+---
+title: 'AdminController'
+description: 'Manages administrative functions including user management, appointments, and system reports'
+---
+
+## Overview
+
+The `AdminController` handles all administrative operations in NutriFit. It provides comprehensive management of users, nutritionists, patients, appointments, and system settings. This controller is restricted to users with the `administrador` role.
+
+**Namespace:** `App\Http\Controllers`
+
+**Middleware:** `auth`, `verified`, `role:administrador`
+
+**Route Prefix:** `/administrador`
+
+---
+
+## Dashboard & Statistics
+
+### index()
+
+Displays the main administrator dashboard with system statistics.
+
+```php
+public function index()
+```
+
+**Route:** `GET /administrador/dashboard`
+
+**Route Name:** `admin.dashboard`
+
+**Returns:** View with statistics including:
+- Total users count
+- Total patients count  
+- Total nutritionists count
+- Total appointments count
+- Pending appointments count
+
+**Example:**
+```php
+// Statistics structure returned to view
+$stats = [
+    'total_users' => 150,
+    'total_pacientes' => 100,
+    'total_nutricionistas' => 20,
+    'total_appointments' => 500,
+    'pending_appointments' => 45
+];
+```
+
+---
+
+## User Management
+
+### users()
+
+Displays the user management index page.
+
+```php
+public function users()
+```
+
+**Route:** `GET /administrador/users`
+
+**Route Name:** `admin.users.index`
+
+**Returns:** User listing view
+
+---
+
+### createUser()
+
+Shows the form to create a new user.
+
+```php
+public function createUser()
+```
+
+**Route:** `GET /administrador/users/create`
+
+**Route Name:** `admin.users.create`
+
+**Returns:** View with roles and user states for the creation form
+
+---
+
+### storeUser(Request $request)
+
+Stores a new user in the database.
+
+```php
+public function storeUser(Request $request)
+```
+
+**Route:** `POST /administrador/users`
+
+**Route Name:** `admin.users.store`
+
+**Parameters:**
+- `name` (string, required): User's full name (max 255 chars)
+- `email` (string, required): User's email (must be unique)
+- `password` (string, required): Password (min 8 chars, must be confirmed)
+- `password_confirmation` (string, required): Password confirmation
+- `role_id` (integer, required): Role ID (must exist in roles table)
+- `user_state_id` (integer, required): User state ID
+
+**Returns:** Redirect to user index with success message
+
+**Example:**
+```php
+// POST request body
+[
+    'name' => 'Juan Pérez',
+    'email' => 'juan.perez@example.com',
+    'password' => 'SecurePass123',
+    'password_confirmation' => 'SecurePass123',
+    'role_id' => 2,
+    'user_state_id' => 1
+]
+```
+
+---
+
+### editUser(User $user)
+
+Displays the edit form for a specific user.
+
+```php
+public function editUser(User $user)
+```
+
+**Route:** `GET /administrador/users/{user}/edit`
+
+**Route Name:** `admin.users.edit`
+
+**Parameters:**
+- `user` (User): Route model binding
+
+**Returns:** Edit view with user data, personal data, and available states
+
+---
+
+### updateUser(Request $request, User $user)
+
+Updates an existing user's information.
+
+```php
+public function updateUser(Request $request, User $user)
+```
+
+**Route:** `PUT /administrador/users/{user}`
+
+**Route Name:** `admin.users.update`
+
+**Parameters:**
+- `user` (User): Route model binding
+- `name` (string, required): User's full name
+- `email` (string, required): User's email
+- `password` (string, optional): New password (min 8 chars, must be confirmed)
+- `user_state_id` (integer, required): User state ID
+- `gender` (string, optional): Gender (`male` or `female`)
+- `birth_date` (date, optional): Birth date (must be before today)
+
+**Returns:** Redirect to user index with success message
+
+**Side Effects:**
+- Sends notification email when user state changes to inactive/active
+- Updates or creates personal data for patients
+
+**Example:**
+```php
+// Update request
+[
+    'name' => 'Juan Carlos Pérez',
+    'email' => 'juan.perez@example.com',
+    'user_state_id' => 2,
+    'gender' => 'male',
+    'birth_date' => '1990-05-15'
+]
+```
+
+---
+
+### toggleUserStatus(User $user)
+
+Activates or deactivates a user account.
+
+```php
+public function toggleUserStatus(User $user)
+```
+
+**Route:** `POST /administrador/users/{user}/toggle-status`
+
+**Route Name:** `admin.users.toggle-status`
+
+**Parameters:**
+- `user` (User): Route model binding
+
+**Returns:** Redirect back with status message
+
+**Side Effects:** Sends notification email to user about account status change
+
+---
+
+## Nutritionist Management
+
+### nutricionistas(Request $request)
+
+Lists all nutritionists with optional search filtering.
+
+```php
+public function nutricionistas(Request $request)
+```
+
+**Route:** `GET /administrador/nutricionistas`
+
+**Route Name:** `admin.nutricionistas.index`
+
+**Query Parameters:**
+- `search` (string, optional): Search by name or email
+
+**Returns:** Paginated list of nutritionists (15 per page)
+
+**Example:**
+```
+GET /administrador/nutricionistas?search=maria
+```
+
+---
+
+### showNutricionista(User $nutricionista)
+
+Displays detailed information about a specific nutritionist.
+
+```php
+public function showNutricionista(User $nutricionista)
+```
+
+**Route:** `GET /administrador/nutricionistas/{nutricionista}`
+
+**Route Name:** `admin.nutricionistas.show`
+
+**Parameters:**
+- `nutricionista` (User): Route model binding
+
+**Returns:** View with nutritionist details and statistics:
+- Total appointments
+- Completed appointments
+- Pending appointments
+- List of appointments with patient information
+
+---
+
+## Patient Management
+
+### pacientes(Request $request)
+
+Lists all patients with optional search filtering.
+
+```php
+public function pacientes(Request $request)
+```
+
+**Route:** `GET /administrador/pacientes`
+
+**Route Name:** `admin.pacientes.index`
+
+**Query Parameters:**
+- `search` (string, optional): Search by name or email
+
+**Returns:** Paginated list of patients (15 per page)
+
+---
+
+### showPaciente(User $paciente)
+
+Displays detailed information about a specific patient.
+
+```php
+public function showPaciente(User $paciente)
+```
+
+**Route:** `GET /administrador/pacientes/{paciente}`
+
+**Route Name:** `admin.pacientes.show`
+
+**Parameters:**
+- `paciente` (User): Route model binding
+
+**Returns:** View with patient details and statistics:
+- Total appointments
+- Completed appointments
+- Pending appointments
+- List of appointments with nutritionist information
+
+---
+
+## Appointment Management
+
+### appointments(Request $request)
+
+Lists all appointments with filtering options.
+
+```php
+public function appointments(Request $request)
+```
+
+**Route:** `GET /administrador/appointments`
+
+**Route Name:** `admin.appointments.index`
+
+**Query Parameters:**
+- `appointment_state_id` (integer, optional): Filter by appointment state
+- `date` (date, optional): Filter by specific date
+- `nutricionista_id` (integer, optional): Filter by nutritionist
+
+**Returns:** Paginated list of appointments (15 per page) with states and nutritionist list
+
+**Example:**
+```
+GET /administrador/appointments?appointment_state_id=1&date=2026-03-05
+```
+
+---
+
+### showAppointment(Appointment $appointment)
+
+Displays detailed information about a specific appointment.
+
+```php
+public function showAppointment(Appointment $appointment)
+```
+
+**Route:** `GET /administrador/appointments/{appointment}`
+
+**Route Name:** `admin.appointments.show`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+
+**Returns:** View with complete appointment details including:
+- Patient and nutritionist information
+- Appointment state
+- Attention data (if completed)
+
+---
+
+### cancelAppointment(Appointment $appointment)
+
+Cancels a specific appointment.
+
+```php
+public function cancelAppointment(Appointment $appointment)
+```
+
+**Route:** `POST /administrador/appointments/{appointment}/cancel`
+
+**Route Name:** `admin.appointments.cancel`
+
+**Parameters:**
+- `appointment` (Appointment): Route model binding
+
+**Returns:** Redirect back with success message
+
+**Side Effects:** Updates appointment state to "cancelada"
+
+---
+
+## Reports & Settings
+
+### reports()
+
+Displays comprehensive system reports and statistics.
+
+```php
+public function reports()
+```
+
+**Route:** `GET /administrador/reports`
+
+**Route Name:** `admin.reports.index`
+
+**Returns:** View with aggregated statistics:
+- Users by role
+- Users by state
+- Appointments by state
+- Appointments this month
+- Appointments today
+- Top 5 nutritionists by appointment count
+- 10 most recent users
+
+**Example Statistics:**
+```php
+[
+    'users_by_role' => [...],
+    'users_by_state' => [...],
+    'appointments_by_state' => [...],
+    'appointments_this_month' => 125,
+    'appointments_today' => 8,
+    'top_nutricionistas' => [...],
+    'recent_users' => [...]
+]
+```
+
+---
+
+### settings()
+
+Manages roles, user states, and appointment states.
+
+```php
+public function settings()
+```
+
+**Route:** `GET /administrador/settings`
+
+**Route Name:** `admin.settings.index`
+
+**Returns:** View with:
+- All roles with user counts
+- All user states with user counts
+- All appointment states with appointment counts
+
+---
+
+### systemSettings()
+
+Displays system configuration page (contact information).
+
+```php
+public function systemSettings()
+```
+
+**Route:** `GET /administrador/system-settings`
+
+**Route Name:** `admin.system-settings.index`
+
+**Returns:** System settings view
+
+---
+
+## Dependencies
+
+The AdminController uses the following models:
+- `App\Models\User`
+- `App\Models\Role`
+- `App\Models\UserState`
+- `App\Models\Appointment`
+- `App\Models\AppointmentState`
+
+And notifications:
+- `App\Notifications\UserAccountDisabledNotification`
+- `App\Notifications\UserAccountEnabledNotification`

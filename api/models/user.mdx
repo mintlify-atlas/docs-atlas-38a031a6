@@ -1,0 +1,333 @@
+---
+title: 'User'
+description: 'Core user model for authentication and authorization in NutriFit'
+---
+
+## Overview
+
+The `User` model extends Laravel's `Authenticatable` class and implements email verification. It represents all users in the system including administrators, nutritionists, and patients.
+
+**Namespace:** `App\Models\User`
+
+**Extends:** `Illuminate\Foundation\Auth\Authenticatable`
+
+**Implements:** `Illuminate\Contracts\Auth\MustVerifyEmail`
+
+**Traits:**
+- `HasFactory` - Factory support for testing
+- `Notifiable` - Laravel notification support
+- `TwoFactorAuthenticatable` - Two-factor authentication from Laravel Fortify
+
+## Fillable Attributes
+
+<ParamField path="name" type="string" required>
+  Full name of the user
+</ParamField>
+
+<ParamField path="email" type="string" required>
+  Email address for authentication and communication
+</ParamField>
+
+<ParamField path="email_verified_at" type="datetime">
+  Timestamp when the email was verified
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  Hashed password (automatically hashed via cast)
+</ParamField>
+
+<ParamField path="role_id" type="integer" required>
+  Foreign key to the Role model (administrador, nutricionista, paciente)
+</ParamField>
+
+<ParamField path="user_state_id" type="integer" required>
+  Foreign key to the UserState model (1 = activo, 2 = inactivo)
+</ParamField>
+
+<ParamField path="data_consent" type="boolean">
+  Whether the user has consented to data processing
+</ParamField>
+
+<ParamField path="data_consent_at" type="datetime">
+  Timestamp when data consent was granted
+</ParamField>
+
+## Hidden Attributes
+
+The following attributes are automatically hidden from JSON serialization:
+- `password`
+- `two_factor_secret`
+- `two_factor_recovery_codes`
+- `remember_token`
+
+## Relationships
+
+### BelongsTo
+
+<ResponseField name="role()" type="BelongsTo">
+  Returns the user's role (Role model)
+  
+  ```php
+  $user->role()->where('name', 'nutricionista')->first();
+  ```
+</ResponseField>
+
+<ResponseField name="userState()" type="BelongsTo">
+  Returns the user's current state (UserState model)
+  
+  ```php
+  $user->userState; // Accesses the user_state_id relationship
+  ```
+</ResponseField>
+
+### HasOne
+
+<ResponseField name="personalData()" type="HasOne">
+  Returns the user's personal data (PersonalData model)
+  
+  **Note:** This relationship is always eager-loaded via `$with = ['personalData']`
+  
+  ```php
+  $user->personalData; // Always available without extra query
+  ```
+</ResponseField>
+
+<ResponseField name="nutricionistaSettings()" type="HasOne">
+  Returns nutritionist-specific settings (NutricionistaSettings model)
+  
+  Only applicable for users with the nutricionista role
+</ResponseField>
+
+### HasMany
+
+<ResponseField name="appointmentsAsPaciente()" type="HasMany">
+  Returns appointments where the user is the patient
+  
+  ```php
+  $user->appointmentsAsPaciente()->where('appointment_state_id', 1)->get();
+  ```
+</ResponseField>
+
+<ResponseField name="appointmentsAsNutricionista()" type="HasMany">
+  Returns appointments where the user is the nutritionist
+  
+  ```php
+  $nutritionist->appointmentsAsNutricionista()->upcoming()->get();
+  ```
+</ResponseField>
+
+<ResponseField name="attentionsAsPaciente()" type="HasMany">
+  Returns clinical attentions where the user is the patient
+</ResponseField>
+
+<ResponseField name="attentionsAsNutricionista()" type="HasMany">
+  Returns clinical attentions where the user is the nutritionist
+</ResponseField>
+
+<ResponseField name="schedules()" type="HasMany">
+  Returns the nutritionist's availability schedules (NutricionistaSchedule model)
+  
+  Only applicable for users with the nutricionista role
+</ResponseField>
+
+## Helper Methods
+
+### Role Helpers
+
+```php
+public function isAdmin(): bool
+```
+
+Returns `true` if the user has the 'administrador' role.
+
+```php
+if ($user->isAdmin()) {
+    // Grant admin access
+}
+```
+
+---
+
+```php
+public function isNutricionista(): bool
+```
+
+Returns `true` if the user has the 'nutricionista' role.
+
+```php
+if ($user->isNutricionista()) {
+    // Show nutritionist dashboard
+}
+```
+
+---
+
+```php
+public function isPaciente(): bool
+```
+
+Returns `true` if the user has the 'paciente' role.
+
+---
+
+### State Helpers
+
+```php
+public function isActive(): bool
+```
+
+Returns `true` if the user's state is active (`user_state_id === 1`).
+
+---
+
+```php
+public function isInactive(): bool
+```
+
+Returns `true` if the user's state is inactive (`user_state_id === 2`).
+
+---
+
+### Clinical Eligibility
+
+```php
+public function estaHabilitadoClinicamente(): bool
+```
+
+Determines if the user is eligible for clinical attention. A user is eligible when:
+- Their state is active (`user_state_id === 1`)
+- Their email is verified
+
+This method centralizes eligibility logic to avoid repetition in views and controllers.
+
+```php
+if ($user->estaHabilitadoClinicamente()) {
+    // Allow appointment booking
+} else {
+    $reason = $user->motivoInhabilitacion();
+    // Show error message with reason
+}
+```
+
+---
+
+```php
+public function motivoInhabilitacion(): ?string
+```
+
+Returns the reason why the user is NOT clinically eligible, or `null` if they are eligible.
+
+**Possible return values:**
+- `"Usuario inactivo"` - User state is inactive
+- `"Email no verificado"` - Email has not been verified
+- `null` - User is clinically eligible
+
+---
+
+### Profile Helpers
+
+```php
+public function initials(): string
+```
+
+Generates user initials from their name (first letter of first two words).
+
+```php
+$user->name = "Juan Carlos Pérez";
+echo $user->initials(); // "JC"
+```
+
+---
+
+```php
+public function profilePhotoUrl(): ?string
+```
+
+Returns the full URL to the user's profile photo, or `null` if not set.
+
+```php
+$photoUrl = $user->profilePhotoUrl();
+if ($photoUrl) {
+    echo "<img src='{$photoUrl}' alt='Profile' />";
+}
+```
+
+---
+
+### Notification Methods
+
+```php
+public function sendEmailVerificationNotification(): void
+```
+
+Sends a custom email verification notification using `App\Notifications\VerifyEmailNotification`.
+
+---
+
+```php
+public function sendPasswordResetNotification(string $token): void
+```
+
+Sends a custom password reset notification using `App\Notifications\ResetPasswordNotification`.
+
+## Usage Examples
+
+### Creating a New Patient
+
+```php
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+
+$user = User::create([
+    'name' => 'María González',
+    'email' => 'maria@example.com',
+    'password' => Hash::make('password123'),
+    'role_id' => 3, // paciente
+    'user_state_id' => 1, // activo
+    'data_consent' => true,
+    'data_consent_at' => now(),
+]);
+
+$user->sendEmailVerificationNotification();
+```
+
+### Checking User Eligibility
+
+```php
+$user = User::find(1);
+
+if (!$user->estaHabilitadoClinicamente()) {
+    return redirect()->back()->with('error', $user->motivoInhabilitacion());
+}
+
+// Proceed with appointment booking
+```
+
+### Loading User with Relationships
+
+```php
+// PersonalData is always loaded automatically
+$user = User::find(1);
+$age = $user->personalData->age;
+
+// Load additional relationships
+$user = User::with([
+    'appointmentsAsPaciente.nutricionista',
+    'attentionsAsPaciente.attentionData'
+])->find(1);
+```
+
+### Role-Based Authorization
+
+```php
+if ($user->isNutricionista()) {
+    $settings = $user->nutricionistaSettings;
+    $schedules = $user->schedules;
+    // Configure nutritionist dashboard
+}
+
+if ($user->isPaciente()) {
+    $appointments = $user->appointmentsAsPaciente;
+    // Show patient appointment history
+}
+```

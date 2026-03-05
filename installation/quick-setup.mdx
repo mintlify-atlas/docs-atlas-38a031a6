@@ -1,0 +1,244 @@
+---
+title: Quick Setup
+description: Get NutriFit running in minutes with automated installation
+---
+
+The fastest way to get NutriFit up and running is using the automated setup script.
+
+<Note>
+This method is recommended for most users as it handles all installation steps automatically.
+</Note>
+
+## Prerequisites
+
+Before starting, ensure you have:
+
+- ✅ PHP 8.2+ installed
+- ✅ Composer 2.x installed
+- ✅ Node.js 18.x+ installed
+- ✅ Git installed
+
+See [System Requirements](/installation/requirements) for details.
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the Repository">
+    First, clone the NutriFit repository to your local machine:
+
+    ```bash
+    git clone https://github.com/Rubenpro19/NutriFit.git
+    cd NutriFit
+    ```
+
+    <Note>
+    Make sure you're in the project directory before running the next command.
+    </Note>
+  </Step>
+
+  <Step title="Run Automated Setup">
+    Execute the one-command setup script:
+
+    ```bash
+    composer run setup
+    ```
+
+    This command automatically performs the following operations:
+
+    1. **Installs PHP dependencies** via Composer
+    2. **Creates `.env` file** from `.env.example`
+    3. **Generates application key** (`APP_KEY`)
+    4. **Runs database migrations** to create tables
+    5. **Installs Node.js dependencies** via npm
+    6. **Compiles frontend assets** for production
+
+    <Warning>
+    The setup process may take 2-5 minutes depending on your internet connection and system performance.
+    </Warning>
+  </Step>
+
+  <Step title="Seed the Database (Required)">
+    Create the default admin user and initial data:
+
+    ```bash
+    php artisan db:seed
+    ```
+
+    This creates:
+    - Admin user with default credentials
+    - Sample roles and permissions
+    - Initial configuration data
+
+    <Note>
+    The seeder is **required** to create the administrator account needed to access the system.
+    </Note>
+  </Step>
+
+  <Step title="Configure Environment (Optional)">
+    The `.env` file has been created with default values suitable for local development. For basic usage, no changes are needed.
+
+    However, you may want to customize:
+
+    ```env
+    APP_NAME="NutriFit"
+    APP_LOCALE=es
+    APP_URL=http://localhost:8000
+
+    # Email testing (optional for development)
+    MAIL_MAILER=log  # Logs emails to storage/logs/laravel.log
+    ```
+
+    See [Configuration](/installation/configuration) for detailed environment setup.
+  </Step>
+
+  <Step title="Start the Development Server">
+    Launch all required services with one command:
+
+    ```bash
+    composer run dev
+    ```
+
+    This starts three services in parallel:
+
+    <CardGroup cols={3}>
+      <Card title="Web Server" icon="server">
+        Laravel server running on `http://localhost:8000`
+      </Card>
+      <Card title="Queue Worker" icon="clock">
+        Processes email notifications and background jobs
+      </Card>
+      <Card title="Vite Dev Server" icon="bolt">
+        Hot module replacement for instant CSS/JS updates
+      </Card>
+    </CardGroup>
+
+    <Note>
+    The terminal will show color-coded output from all three services. Press `Ctrl+C` to stop all services.
+    </Note>
+  </Step>
+
+  <Step title="Access the Application">
+    Open your browser and navigate to:
+
+    ```
+    http://localhost:8000
+    ```
+
+    You should see the NutriFit welcome page.
+
+    ### Default Admin Credentials
+
+    ```
+    Email: nutrifit2026@gmail.com
+    Password: NutriAdmin123
+    ```
+
+    <Warning>
+    Change the admin password immediately after first login, especially in production environments.
+    </Warning>
+  </Step>
+</Steps>
+
+## What Gets Installed
+
+The automated setup configures:
+
+### Backend Dependencies (composer.json)
+
+```json
+{
+  "php": "^8.2",
+  "laravel/framework": "^12.0",
+  "livewire/flux": "^2.1.1",
+  "livewire/volt": "^1.7.0",
+  "laravel/fortify": "^1.30",
+  "barryvdh/laravel-dompdf": "^3.1",
+  "laravel/socialite": "^5.23"
+}
+```
+
+### Frontend Dependencies (package.json)
+
+```json
+{
+  "tailwindcss": "^4.0.7",
+  "vite": "^7.0.4",
+  "axios": "^1.7.4",
+  "autoprefixer": "^10.4.20"
+}
+```
+
+## Verification
+
+Verify your installation is complete:
+
+<Steps>
+  <Step title="Check Database">
+    ```bash
+    php artisan migrate:status
+    ```
+    All migrations should show "Ran".
+  </Step>
+
+  <Step title="Check Assets">
+    ```bash
+    ls -la public/build
+    ```
+    You should see compiled CSS and JS files.
+  </Step>
+
+  <Step title="Check Configuration">
+    ```bash
+    php artisan config:show app
+    ```
+    Verify your app name and environment settings.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+### Port Already in Use
+
+If port 8000 is already in use:
+
+```bash
+php artisan serve --port=8001
+```
+
+### Permission Errors
+
+Ensure storage and cache directories are writable:
+
+```bash
+chmod -R 775 storage bootstrap/cache
+```
+
+### Database Not Found
+
+For SQLite, ensure the file exists:
+
+```bash
+touch database/database.sqlite
+php artisan migrate --force
+```
+
+### Node Modules Issues
+
+If asset compilation fails:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/installation/configuration">
+    Customize environment settings, database, and mail configuration
+  </Card>
+  <Card title="Getting Started" icon="rocket" href="/getting-started">
+    Learn about NutriFit features and core concepts
+  </Card>
+</CardGroup>

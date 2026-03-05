@@ -1,0 +1,341 @@
+---
+title: 'Nutritionist Livewire Components'
+description: 'Components for nutritionist profile management, patient data, and patient lists'
+---
+
+## Overview
+
+Nutritionist components provide interfaces for nutritionists to manage their profiles, view and manage patients, and collect patient data. These components are restricted to users with the `nutricionista` role.
+
+## NutricionistaProfile
+
+**Location**: `app/Livewire/Nutricionista/NutricionistaProfile.php:14`
+
+**View**: `resources/views/livewire/nutricionista/nutricionista-profile.blade.php`
+
+### Purpose
+
+Manages nutritionist profile information including personal details, profile photo, consultation pricing, and password changes.
+
+### Traits
+
+- `WithFileUploads` - Enables file upload functionality for profile photos
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `name` | `string` | - | Nutritionist's name |
+| `email` | `string` | - | Email address (read-only) |
+| `phone` | `string` | `''` | Contact phone number |
+| `profile_photo` | `mixed` | `null` | Uploaded profile photo file |
+| `profile_photo_path` | `string` | `''` | Current photo path |
+| `consultation_price` | `float` | `30.00` | Price per consultation |
+| `current_password` | `string` | `''` | Current password for verification |
+| `password` | `string` | `''` | New password |
+| `password_confirmation` | `string` | `''` | Password confirmation |
+| `hasPersonalData` | `bool` | `false` | Whether personal data exists |
+| `hasPassword` | `bool` | `false` | Whether custom password is set |
+
+### Validation Rules
+
+**Location**: `app/Livewire/Nutricionista/NutricionistaProfile.php:32`
+
+```php
+'name' => 'required|string|max:255'
+'phone' => 'nullable|string|max:10'
+'profile_photo' => 'nullable|image|max:2048'
+'consultation_price' => 'required|numeric|min:0|max:999999.99'
+'current_password' => 'required_with:password|string' // if hasPassword
+'password' => 'nullable|string|min:8|confirmed'
+```
+
+### Methods
+
+#### `mount(): void`
+
+**Location**: `app/Livewire/Nutricionista/NutricionistaProfile.php:66`
+
+Initializes the component with the authenticated nutritionist's data.
+
+**Process**:
+1. Verifies user has `nutricionista` role (aborts with 403 if not)
+2. Loads user name and email
+3. Checks if user has custom password (not default)
+4. Loads personal data if exists
+5. Loads consultation price from settings
+
+```php
+if ($user->personalData) {
+    $this->hasPersonalData = true;
+    $this->phone = $user->personalData->phone ?? '';
+    $this->profile_photo_path = $user->personalData->profile_photo ?? '';
+}
+```
+
+#### `saveProfile(): void`
+
+**Location**: `app/Livewire/Nutricionista/NutricionistaProfile.php:93`
+
+Saves profile information including name, phone, photo, and consultation price.
+
+**Process**:
+1. Validates profile fields
+2. Updates user name
+3. Handles profile photo upload:
+   - Deletes old photo if exists
+   - Stores new photo in `profile-photos` directory
+4. Updates or creates `PersonalData` record
+5. Updates or creates `NutricionistaSettings` with consultation price
+6. Redirects with success message
+
+**Flash Messages**:
+- `success`: "Tu perfil ha sido actualizado correctamente."
+- `error`: "Error al actualizar el perfil: {message}"
+
+#### `updatePassword(): void`
+
+**Location**: `app/Livewire/Nutricionista/NutricionistaProfile.php:148`
+
+Updates the nutritionist's password with proper verification.
+
+**Process**:
+1. Validates current password (if user has custom password)
+2. Validates new password (min 8 chars, confirmed)
+3. Verifies current password matches
+4. Hashes and saves new password
+5. Sends `PasswordChangedNotification` to user
+6. Resets password fields
+7. Redirects with success message
+
+**Flash Messages**:
+- `password_success`: "Tu contraseña ha sido actualizada correctamente."
+- `password_error`: "La contraseña actual es incorrecta." or "Error al actualizar la contraseña: {message}"
+
+### Usage Example
+
+```blade
+<livewire:nutricionista.nutricionista-profile />
+```
+
+---
+
+## PatientDataForm
+
+**Location**: `app/Livewire/Nutricionista/PatientDataForm.php:11`
+
+**View**: `resources/views/livewire/nutricionista/patient-data-form.blade.php`
+
+### Purpose
+
+Allows nutritionists to create personal data records for patients who don't have them yet. Used during the first appointment workflow.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `patient` | `User` | - | Patient user model |
+| `appointmentId` | `?int` | `null` | Associated appointment ID |
+| `cedula` | `string` | `''` | National ID number |
+| `phone` | `string` | `''` | Phone number |
+| `address` | `string` | `''` | Physical address |
+| `birth_date` | `string` | `''` | Date of birth |
+| `gender` | `string` | `''` | Gender (male/female/other) |
+| `hasPersonalData` | `bool` | `false` | Whether patient has data |
+| `isReadOnly` | `bool` | `false` | Form is read-only |
+
+### Validation Rules
+
+**Location**: `app/Livewire/Nutricionista/PatientDataForm.php:24`
+
+```php
+'gender' => 'required|in:male,female,other'
+'birth_date' => 'required|date|before:today|after:{120 years ago}'
+'cedula' => 'nullable|numeric|digits_between:6,20|unique:personal_data,cedula'
+'phone' => 'nullable|numeric|digits:10'
+'address' => 'nullable|string|max:255'
+```
+
+### Methods
+
+#### `mount(User $patient, ?int $appointmentId = null): void`
+
+**Location**: `app/Livewire/Nutricionista/PatientDataForm.php:50`
+
+Initializes the form for a specific patient.
+
+**Process**:
+1. Verifies authenticated user is a nutritionist (aborts with 403 if not)
+2. Verifies patient has `paciente` role (aborts with 404 if not)
+3. Checks if patient already has personal data
+4. If data exists, loads it and sets form to read-only
+5. Stores optional appointment ID for post-save redirect
+
+```php
+if ($patient->personalData) {
+    $this->hasPersonalData = true;
+    $this->isReadOnly = true;
+    // Load existing data...
+}
+```
+
+#### `save(): void`
+
+**Location**: `app/Livewire/Nutricionista/PatientDataForm.php:80`
+
+Creates personal data record for the patient.
+
+**Process**:
+1. Prevents save if patient already has data
+2. Validates all input fields
+3. Creates `PersonalData` record
+4. Sends `PersonalDataCreatedNotification` to patient
+5. Redirects based on appointment ID:
+   - If appointment ID exists: redirects to create attention record
+   - Otherwise: redirects to patient list
+
+**Flash Messages**:
+- `error`: "Este paciente ya tiene datos personales asignados." or "Error al guardar los datos: {message}"
+
+### Usage Example
+
+```blade
+<livewire:nutricionista.patient-data-form :patient="$patient" :appointmentId="$appointmentId" />
+```
+
+---
+
+## PatientsTable
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:10`
+
+**View**: `resources/views/livewire/nutricionista/patients-table.blade.php`
+
+### Purpose
+
+Provides a filterable, sortable table of all patients associated with the authenticated nutritionist.
+
+### Traits
+
+- `WithPagination` - Enables pagination support
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `search` | `string` | `''` | Search term for name/email |
+| `estado` | `string` | `''` | Filter by user state |
+| `proximas_citas` | `string` | `''` | Filter patients with upcoming appointments |
+| `sort` | `string` | `'name'` | Sort order (name/recent) |
+
+### Query String Parameters
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:19`
+
+```php
+protected $queryString = [
+    'search' => ['except' => ''],
+    'estado' => ['except' => ''],
+    'proximas_citas' => ['except' => ''],
+    'sort' => ['except' => 'name'],
+    'page' => ['except' => 1],
+];
+```
+
+### Methods
+
+#### `updatingSearch(): void`
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:27`
+
+Resets pagination when search changes.
+
+#### `updatedEstado(): void`
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:32`
+
+Resets pagination when state filter changes.
+
+#### `updatedProximasCitas(): void`
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:37`
+
+Resets pagination when appointment filter changes.
+
+#### `clearFilters(): void`
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:47`
+
+Resets all filters and sorting to defaults.
+
+#### `render()`
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:56`
+
+Builds and executes the query to fetch filtered patients.
+
+**Query Features**:
+1. Filters to users with `paciente` role
+2. Eager loads relationships:
+   - `userState`
+   - `personalData`
+   - `appointmentsAsPaciente` (only next pending appointment)
+3. Counts total appointments per patient
+4. Filters by search term (case-insensitive ILIKE)
+5. Filters by user state
+6. Filters by upcoming appointments if requested
+7. Sorts by name or most recent appointment
+8. Paginates with 12 patients per page
+
+**Sorting Options**:
+- `name`: Alphabetical by patient name
+- `recent`: By most recent appointment date
+
+**Returns**:
+- `patients` - Paginated patient collection
+- `userStates` - All available user states for filtering
+
+### Advanced Query Example
+
+**Location**: `app/Livewire/Nutricionista/PatientsTable.php:95`
+
+Filtering patients with upcoming appointments:
+
+```php
+if ($this->proximas_citas === '1') {
+    $query->whereHas('appointmentsAsPaciente', function($q) use ($nutricionista) {
+        $q->where('nutricionista_id', $nutricionista->id)
+          ->whereHas('appointmentState', fn($sq) => $sq->where('name', 'pendiente'))
+          ->where('start_time', '>=', now());
+    });
+}
+```
+
+### Usage Example
+
+```blade
+<livewire:nutricionista.patients-table />
+```
+
+## Security Considerations
+
+- All components verify the authenticated user has the `nutricionista` role
+- `PatientDataForm` additionally verifies the target user has the `paciente` role
+- Patient data cannot be edited once created (read-only after initial save)
+- File uploads are restricted to images with 2MB max size
+- Cedula (national ID) uniqueness is enforced
+- Password changes require current password verification
+- All inputs are validated server-side
+
+## Related Models
+
+- `App\Models\User` - User accounts
+- `App\Models\PersonalData` - Personal information
+- `App\Models\NutricionistaSettings` - Nutritionist-specific settings
+- `App\Models\UserState` - User account states
+- `App\Models\Appointment` - Appointments
+
+## Notifications
+
+- `PasswordChangedNotification` - Sent when password is updated
+- `PersonalDataCreatedNotification` - Sent to patient when their data is created

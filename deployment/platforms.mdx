@@ -1,0 +1,580 @@
+---
+title: 'Deployment Platforms'
+description: 'Comprehensive guide to deploying NutriFit on various hosting platforms'
+---
+
+NutriFit can be deployed on various platforms, from managed Laravel hosting to traditional VPS servers. This guide covers recommended platforms and detailed deployment instructions for each.
+
+## Platform Overview
+
+<CardGroup cols={2}>
+  <Card title="Laravel Forge" icon="forge" color="#FF8C00">
+    **Best for:** Most users
+    
+    Automated server management and deployment with one-click setup for Laravel applications.
+    
+    - Zero-downtime deployments
+    - Automatic SSL certificates
+    - Queue worker management
+    - Scheduler configuration
+    
+    **Price:** From $12/month + server costs
+  </Card>
+
+  <Card title="Laravel Vapor" icon="cloud" color="#4FC1E9">
+    **Best for:** Serverless & scalability
+    
+    Serverless deployment platform on AWS Lambda with auto-scaling.
+    
+    - Auto-scaling
+    - Pay-per-use pricing
+    - Global CDN
+    - Managed databases
+    
+    **Price:** From $39/month + AWS costs
+  </Card>
+
+  <Card title="DigitalOcean" icon="digital-ocean" color="#0080FF">
+    **Best for:** Balance of ease and control
+    
+    Cloud hosting with App Platform for easy deployment or Droplets for full control.
+    
+    - Simple setup
+    - Predictable pricing
+    - Managed databases
+    - 1-click apps
+    
+    **Price:** From $6/month
+  </Card>
+
+  <Card title="Traditional VPS" icon="server" color="#10B981">
+    **Best for:** Full control & customization
+    
+    Self-managed server on providers like Linode, Vultr, or Hetzner.
+    
+    - Complete control
+    - Lower costs
+    - Custom configurations
+    - Learning experience
+    
+    **Price:** From $5/month
+  </Card>
+</CardGroup>
+
+## Laravel Forge (Recommended)
+
+<Note>
+  Laravel Forge is the easiest way to deploy NutriFit. It handles server provisioning, deployment, SSL, queue workers, and more.
+</Note>
+
+### Prerequisites
+
+- Laravel Forge account ([forge.laravel.com](https://forge.laravel.com))
+- Cloud server provider account (DigitalOcean, Linode, Vultr, AWS, etc.)
+- Domain name with DNS management access
+- Git repository (GitHub, GitLab, or Bitbucket)
+
+### Deployment Steps
+
+<Steps>
+  <Step title="Create Server in Forge">
+    1. Log into Laravel Forge
+    2. Click **Create Server**
+    3. Select your cloud provider
+    4. Choose server configuration:
+       - **Server Type:** App Server
+       - **Size:** At least 1GB RAM (2GB recommended)
+       - **PHP Version:** 8.2
+       - **Database:** MySQL 8.0
+    5. Name your server and click **Create Server**
+    
+    <Note>Server provisioning takes 5-10 minutes.</Note>
+  </Step>
+
+  <Step title="Configure Domain">
+    1. In Forge, go to your server
+    2. Click **Sites** → **New Site**
+    3. Enter your domain: `yourdomain.com`
+    4. Project Type: **Laravel**
+    5. Web Directory: `/public`
+    
+    Update your domain's DNS:
+    ```
+    A Record: @ → [Your Server IP]
+    A Record: www → [Your Server IP]
+    ```
+  </Step>
+
+  <Step title="Connect Git Repository">
+    1. Go to your site in Forge
+    2. Click **Apps** → **Git Repository**
+    3. Select provider (GitHub/GitLab/Bitbucket)
+    4. Enter repository: `username/nutrifit`
+    5. Branch: `main` or `production`
+    6. Click **Install Repository**
+  </Step>
+
+  <Step title="Configure Environment">
+    1. Go to **Environment**
+    2. Update `.env` variables:
+       ```bash
+       APP_ENV=production
+       APP_DEBUG=false
+       APP_URL=https://yourdomain.com
+       
+       DB_CONNECTION=mysql
+       DB_DATABASE=forge
+       DB_USERNAME=forge
+       DB_PASSWORD=[auto-generated]
+       
+       MAIL_MAILER=smtp
+       MAIL_HOST=smtp.postmarkapp.com
+       MAIL_PORT=587
+       MAIL_USERNAME=your_token
+       MAIL_PASSWORD=your_token
+       ```
+    3. Click **Save**
+  </Step>
+
+  <Step title="Setup SSL Certificate">
+    1. Go to **SSL**
+    2. Click **LetsEncrypt**
+    3. Enter domains: `yourdomain.com,www.yourdomain.com`
+    4. Click **Obtain Certificate**
+    
+    <Check>SSL certificate is automatically renewed by Forge.</Check>
+  </Step>
+
+  <Step title="Configure Queue Worker">
+    1. Go to **Queue** → **Add Worker**
+    2. Connection: `database` (or `redis`)
+    3. Queue: `default`
+    4. Max Tries: `3`
+    5. Click **Add Worker**
+    
+    Forge automatically manages the queue worker process.
+  </Step>
+
+  <Step title="Enable Scheduler">
+    1. Go to **Scheduler**
+    2. Verify it's enabled (should be by default)
+    3. This runs Laravel's scheduler every minute
+    
+    NutriFit uses this for appointment reminders.
+  </Step>
+
+  <Step title="Deploy Application">
+    1. Go to **Apps** → **Git Repository**
+    2. Click **Deploy Now**
+    
+    Or enable **Quick Deploy** for automatic deployments on git push.
+  </Step>
+
+  <Step title="Run Initial Setup">
+    1. Go to **Site** → **Terminal**
+    2. Run migrations and seeder:
+       ```bash
+       php artisan migrate --force
+       php artisan db:seed
+       ```
+  </Step>
+</Steps>
+
+### Deploy Script
+
+Customize Forge's deploy script (optional):
+
+```bash
+cd /home/forge/yourdomain.com
+git pull origin $FORGE_SITE_BRANCH
+
+$FORGE_COMPOSER install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+( flock -w 10 9 || exit 1
+    echo 'Restarting FPM...'; sudo -S service $FORGE_PHP_FPM reload ) 9>/tmp/fpmlock
+
+if [ -f artisan ]; then
+    $FORGE_PHP artisan migrate --force
+    $FORGE_PHP artisan config:cache
+    $FORGE_PHP artisan route:cache
+    $FORGE_PHP artisan view:cache
+    $FORGE_PHP artisan queue:restart
+fi
+
+npm ci
+npm run build
+```
+
+<Tip>
+  Enable **Quick Deploy** to automatically deploy when you push to your repository.
+</Tip>
+
+## Laravel Vapor
+
+Serverless deployment on AWS Lambda.
+
+### Prerequisites
+
+- Laravel Vapor account ([vapor.laravel.com](https://vapor.laravel.com))
+- AWS account
+- Vapor CLI installed
+
+### Setup
+
+<Steps>
+  <Step title="Install Vapor CLI">
+    ```bash
+    composer require laravel/vapor-cli
+    php vendor/bin/vapor login
+    ```
+  </Step>
+
+  <Step title="Initialize Vapor">
+    ```bash
+    php vendor/bin/vapor init
+    ```
+    
+    This creates `vapor.yml` configuration file.
+  </Step>
+
+  <Step title="Configure vapor.yml">
+    ```yaml
+    id: 1
+    name: nutrifit
+    environments:
+      production:
+        memory: 1024
+        timeout: 30
+        build:
+          - 'composer install --no-dev --optimize-autoloader'
+          - 'npm ci && npm run build'
+          - 'php artisan config:cache'
+        deploy:
+          - 'php artisan migrate --force'
+        database: nutrifit-db
+        cache: nutrifit-cache
+        queue: redis
+    ```
+  </Step>
+
+  <Step title="Deploy to Vapor">
+    ```bash
+    php vendor/bin/vapor deploy production
+    ```
+  </Step>
+</Steps>
+
+### Vapor Considerations
+
+<Warning>
+  Vapor has some limitations:
+  - Read-only filesystem (except `/tmp`)
+  - 6MB request/response limit
+  - Cold start latency
+  - Higher complexity
+</Warning>
+
+<Tip>
+  Vapor is best for high-traffic applications needing auto-scaling. For most use cases, Forge is simpler.
+</Tip>
+
+## DigitalOcean
+
+### Option 1: App Platform (Easiest)
+
+<Steps>
+  <Step title="Create App">
+    1. Log into DigitalOcean
+    2. Go to **Apps** → **Create App**
+    3. Connect your Git repository
+    4. Select branch: `main`
+  </Step>
+
+  <Step title="Configure Build">
+    Build Command:
+    ```bash
+    composer install --optimize-autoloader --no-dev
+    npm ci && npm run build
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+    ```
+    
+    Run Command:
+    ```bash
+    php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8080
+    ```
+  </Step>
+
+  <Step title="Add Database">
+    1. Click **Add Resource** → **Database**
+    2. Choose **MySQL**
+    3. Select plan (Basic recommended)
+    4. Database is automatically connected
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Add in App Platform settings:
+    ```bash
+    APP_ENV=production
+    APP_DEBUG=false
+    APP_KEY=${APP_KEY}
+    QUEUE_CONNECTION=database
+    # Database variables auto-populated
+    ```
+  </Step>
+
+  <Step title="Add Worker Component">
+    For queue processing:
+    1. Add **Worker** component
+    2. Run Command:
+       ```bash
+       php artisan queue:work --tries=3
+       ```
+  </Step>
+</Steps>
+
+### Option 2: Droplet (More Control)
+
+<Steps>
+  <Step title="Create Droplet">
+    1. Create Droplet with Ubuntu 22.04
+    2. Size: At least 1GB RAM ($6/month)
+    3. Enable monitoring
+  </Step>
+
+  <Step title="Initial Server Setup">
+    ```bash
+    # Update system
+    sudo apt update && sudo apt upgrade -y
+    
+    # Install required packages
+    sudo apt install -y nginx mysql-server php8.2 php8.2-fpm \
+      php8.2-mysql php8.2-mbstring php8.2-xml php8.2-bcmath \
+      php8.2-curl php8.2-zip unzip git
+    ```
+  </Step>
+
+  <Step title="Install Composer">
+    ```bash
+    curl -sS https://getcomposer.org/installer | php
+    sudo mv composer.phar /usr/local/bin/composer
+    ```
+  </Step>
+
+  <Step title="Setup Database">
+    ```bash
+    sudo mysql
+    ```
+    
+    ```sql
+    CREATE DATABASE nutrifit;
+    CREATE USER 'nutrifit'@'localhost' IDENTIFIED BY 'secure_password';
+    GRANT ALL ON nutrifit.* TO 'nutrifit'@'localhost';
+    FLUSH PRIVILEGES;
+    EXIT;
+    ```
+  </Step>
+
+  <Step title="Clone and Setup Application">
+    ```bash
+    cd /var/www
+    sudo git clone https://github.com/Rubenpro19/NutriFit.git nutrifit
+    cd nutrifit
+    
+    # Install dependencies
+    composer install --optimize-autoloader --no-dev
+    npm install && npm run build
+    
+    # Setup environment
+    cp .env.example .env
+    php artisan key:generate
+    
+    # Configure .env with database credentials
+    nano .env
+    
+    # Run migrations
+    php artisan migrate --force
+    php artisan db:seed
+    
+    # Set permissions
+    sudo chown -R www-data:www-data /var/www/nutrifit
+    sudo chmod -R 755 /var/www/nutrifit/storage
+    ```
+  </Step>
+
+  <Step title="Configure Nginx">
+    Create site configuration:
+    
+    ```bash
+    sudo nano /etc/nginx/sites-available/nutrifit
+    ```
+    
+    ```nginx
+    server {
+        listen 80;
+        server_name yourdomain.com;
+        root /var/www/nutrifit/public;
+    
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+    
+        index index.php;
+    
+        charset utf-8;
+    
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+    
+        location = /favicon.ico { access_log off; log_not_found off; }
+        location = /robots.txt  { access_log off; log_not_found off; }
+    
+        error_page 404 /index.php;
+    
+        location ~ \.php$ {
+            fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+    
+        location ~ /\.(?!well-known).* {
+            deny all;
+        }
+    }
+    ```
+    
+    Enable site:
+    ```bash
+    sudo ln -s /etc/nginx/sites-available/nutrifit /etc/nginx/sites-enabled/
+    sudo nginx -t
+    sudo systemctl restart nginx
+    ```
+  </Step>
+
+  <Step title="Setup SSL with Certbot">
+    ```bash
+    sudo apt install certbot python3-certbot-nginx
+    sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+    ```
+  </Step>
+
+  <Step title="Setup Queue Worker & Scheduler">
+    See [Queue Workers guide](/deployment/queue-workers) for detailed instructions.
+  </Step>
+</Steps>
+
+## Traditional VPS
+
+Similar to DigitalOcean Droplet setup, but with different providers:
+
+<Tabs>
+  <Tab title="Linode">
+    1. Create Linode (Nanode 1GB: $5/month)
+    2. Follow Ubuntu server setup steps above
+    3. Configure Linode firewall
+  </Tab>
+
+  <Tab title="Vultr">
+    1. Deploy Cloud Compute instance
+    2. Choose Ubuntu 22.04
+    3. Follow standard VPS setup
+  </Tab>
+
+  <Tab title="Hetzner">
+    1. Create Cloud server (CX11: €4.15/month)
+    2. Very cost-effective for European users
+    3. Follow Ubuntu setup
+  </Tab>
+</Tabs>
+
+## Shared Hosting
+
+<Warning>
+  Shared hosting is NOT recommended for NutriFit due to queue worker and scheduler requirements.
+</Warning>
+
+If shared hosting is your only option:
+
+1. Ensure PHP 8.2+ is available
+2. Database access (MySQL)
+3. Composer available
+4. SSH access (required)
+5. Ability to run cron jobs
+
+**Limitations:**
+- Queue workers may not work properly
+- Performance will be limited
+- Limited control over PHP configuration
+
+## Comparison Table
+
+| Feature | Forge | Vapor | DigitalOcean | VPS |
+|---------|-------|-------|--------------|-----|
+| **Ease of Setup** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ |
+| **Cost** | $12 + server | $39 + AWS | $6-12 | $5-10 |
+| **Auto-Scaling** | ❌ | ✅ | Limited | ❌ |
+| **Queue Workers** | ✅ Auto | ✅ Auto | Manual | Manual |
+| **SSL Management** | ✅ Auto | ✅ Auto | ✅ Auto | Manual |
+| **Zero-Downtime** | ✅ | ✅ | ✅ | Manual |
+| **Learning Curve** | Low | Medium | Medium | High |
+| **Control Level** | Medium | Low | High | Full |
+
+## Post-Deployment Verification
+
+After deploying to any platform:
+
+<AccordionGroup>
+  <Accordion title="Test Application" icon="check">
+    - [ ] Visit homepage
+    - [ ] Register test account
+    - [ ] Verify email is sent
+    - [ ] Login successfully
+    - [ ] Create test appointment
+    - [ ] Verify confirmation email
+  </Accordion>
+
+  <Accordion title="Check Queue Worker" icon="list">
+    ```bash
+    # SSH into server
+    ps aux | grep queue:work
+    
+    # Check queue table
+    php artisan queue:monitor
+    ```
+  </Accordion>
+
+  <Accordion title="Verify Scheduler" icon="clock">
+    ```bash
+    php artisan schedule:list
+    php artisan schedule:test
+    ```
+  </Accordion>
+
+  <Accordion title="Test Performance" icon="gauge">
+    - Check page load times
+    - Verify assets load correctly
+    - Test under expected load
+    - Monitor error logs
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Queue Workers" icon="list-check" href="/deployment/queue-workers">
+    Configure background job processing
+  </Card>
+  
+  <Card title="Monitoring" icon="chart-line" href="/maintenance/commands">
+    Set up application monitoring
+  </Card>
+  
+  <Card title="Backup Strategy" icon="database" href="/maintenance/database-backups">
+    Configure automated backups
+  </Card>
+  
+  <Card title="Performance" icon="gauge-high" href="/deployment/checklist">
+    Optimize application performance
+  </Card>
+</CardGroup>

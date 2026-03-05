@@ -1,0 +1,457 @@
+---
+title: Configuration
+description: Configure environment variables, database, mail, and queue settings
+---
+
+After installation, customize NutriFit's configuration to match your environment and requirements.
+
+## Environment File
+
+All configuration is managed through the `.env` file in your project root. This file is created during installation from `.env.example`.
+
+<Warning>
+Never commit `.env` to version control. It contains sensitive credentials and environment-specific settings.
+</Warning>
+
+## Application Settings
+
+### Basic Configuration
+
+```env
+APP_NAME="NutriFit"
+APP_ENV=local
+APP_KEY=base64:...
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+```
+
+<CardGroup cols={2}>
+  <Card title="APP_NAME" icon="tag">
+    Displayed in browser title, emails, and notifications. Change to match your brand.
+  </Card>
+  <Card title="APP_ENV" icon="flask">
+    Set to `local` for development, `production` for live sites. Affects error handling.
+  </Card>
+  <Card title="APP_KEY" icon="key">
+    Auto-generated encryption key. Never share this. Regenerate with `php artisan key:generate`.
+  </Card>
+  <Card title="APP_DEBUG" icon="bug">
+    Shows detailed errors when `true`. **Must be `false` in production** for security.
+  </Card>
+</CardGroup>
+
+### Localization
+
+```env
+APP_LOCALE=es
+APP_FALLBACK_LOCALE=es
+APP_FAKER_LOCALE=en_US
+```
+
+NutriFit defaults to Spanish (`es`). Change `APP_LOCALE` to:
+- `en` - English
+- `es` - Spanish
+- `pt` - Portuguese
+
+### Maintenance Mode
+
+```env
+APP_MAINTENANCE_DRIVER=file
+# APP_MAINTENANCE_STORE=database
+```
+
+Controls how maintenance mode state is stored. Use `file` for single-server setups, `database` for multi-server.
+
+## Database Configuration
+
+### SQLite (Development)
+
+Default configuration for local development:
+
+```env
+DB_CONNECTION=sqlite
+```
+
+No additional settings needed. Database file is located at `database/database.sqlite`.
+
+<Note>
+SQLite is perfect for development but **not recommended for production** with multiple concurrent users.
+</Note>
+
+### MySQL (Production)
+
+For production environments, use MySQL:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=nutrifit
+DB_USERNAME=root
+DB_PASSWORD=your_secure_password
+```
+
+<Steps>
+  <Step title="Create Database">
+    Create a new MySQL database:
+
+    ```sql
+    CREATE DATABASE nutrifit 
+      CHARACTER SET utf8mb4 
+      COLLATE utf8mb4_unicode_ci;
+    ```
+  </Step>
+
+  <Step title="Create User (Optional)">
+    For security, create a dedicated database user:
+
+    ```sql
+    CREATE USER 'nutrifit_user'@'localhost' 
+      IDENTIFIED BY 'secure_password';
+    
+    GRANT ALL PRIVILEGES ON nutrifit.* 
+      TO 'nutrifit_user'@'localhost';
+    
+    FLUSH PRIVILEGES;
+    ```
+  </Step>
+
+  <Step title="Update .env">
+    Update database credentials in `.env`:
+
+    ```env
+    DB_USERNAME=nutrifit_user
+    DB_PASSWORD=secure_password
+    ```
+  </Step>
+
+  <Step title="Run Migrations">
+    Migrate the database:
+
+    ```bash
+    php artisan migrate --force
+    ```
+  </Step>
+</Steps>
+
+### Remote Database
+
+For cloud databases (AWS RDS, DigitalOcean, etc.):
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=db.example.com
+DB_PORT=3306
+DB_DATABASE=nutrifit_prod
+DB_USERNAME=nutrifit_user
+DB_PASSWORD=your_password
+DB_SSLMODE=require  # For encrypted connections
+```
+
+## Mail Configuration
+
+NutriFit sends email notifications for appointments, confirmations, and reminders.
+
+### Development (Mailtrap)
+
+Mailtrap captures emails in development without sending them:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=sandbox.smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=your_mailtrap_username
+MAIL_PASSWORD=your_mailtrap_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@nutrifit.local"
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+<Steps>
+  <Step title="Sign Up">
+    Create a free account at [mailtrap.io](https://mailtrap.io)
+  </Step>
+
+  <Step title="Get Credentials">
+    Go to **Email Testing** → **Inboxes** → **SMTP Settings**
+  </Step>
+
+  <Step title="Copy to .env">
+    Copy the username and password to your `.env` file
+  </Step>
+</Steps>
+
+### Development (Log Driver)
+
+Alternatively, log emails to `storage/logs/laravel.log`:
+
+```env
+MAIL_MAILER=log
+```
+
+Emails won't be sent but will be written to the log file for inspection.
+
+### Production (SMTP)
+
+For production, use a real SMTP service:
+
+#### Gmail
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@yourdomain.com"
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+<Warning>
+For Gmail, you must use an [App Password](https://support.google.com/accounts/answer/185833), not your regular password.
+</Warning>
+
+#### SendGrid
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.sendgrid.net
+MAIL_PORT=587
+MAIL_USERNAME=apikey
+MAIL_PASSWORD=your_sendgrid_api_key
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@yourdomain.com"
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+#### Mailgun
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailgun.org
+MAIL_PORT=587
+MAIL_USERNAME=postmaster@mg.yourdomain.com
+MAIL_PASSWORD=your_mailgun_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@yourdomain.com"
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+### Test Email Configuration
+
+Verify email setup:
+
+```bash
+php artisan tinker
+```
+
+Then run:
+
+```php
+Mail::raw('Test email from NutriFit', function ($message) {
+    $message->to('your-email@example.com')
+            ->subject('Test Email');
+});
+```
+
+Check your inbox (or Mailtrap) for the test email.
+
+## Queue Configuration
+
+Queues handle background jobs like sending emails asynchronously.
+
+### Database Queue (Default)
+
+```env
+QUEUE_CONNECTION=database
+```
+
+Jobs are stored in the `jobs` table. This is the recommended setup for most applications.
+
+<Note>
+You **must** run a queue worker for emails to be sent:
+
+```bash
+php artisan queue:work
+```
+
+Or use `composer run dev` which includes the queue worker.
+</Note>
+
+### Redis Queue (Advanced)
+
+For high-traffic applications, Redis provides better performance:
+
+```env
+QUEUE_CONNECTION=redis
+
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+```
+
+Requires Redis server and PHP Redis extension:
+
+```bash
+sudo apt-get install redis-server php-redis
+```
+
+### Sync Queue (Testing)
+
+For testing, process jobs immediately without a worker:
+
+```env
+QUEUE_CONNECTION=sync
+```
+
+<Warning>
+Never use `sync` in production. It blocks the request until the job completes.
+</Warning>
+
+## Session Configuration
+
+```env
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+SESSION_ENCRYPT=false
+```
+
+- **SESSION_DRIVER**: Where to store session data (`file`, `database`, `redis`)
+- **SESSION_LIFETIME**: Minutes before session expires (120 = 2 hours)
+- **SESSION_ENCRYPT**: Encrypt session data (recommended for sensitive apps)
+
+## Cache Configuration
+
+```env
+CACHE_STORE=database
+```
+
+Options:
+- `database` - Store in database (default)
+- `file` - Store in files
+- `redis` - Store in Redis (fastest)
+- `array` - Memory only (testing)
+
+For production with high traffic, use Redis:
+
+```env
+CACHE_STORE=redis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+```
+
+## Filesystem Configuration
+
+```env
+FILESYSTEM_DISK=local
+```
+
+For storing uploads and generated files:
+
+- `local` - Store in `storage/app` (default)
+- `public` - Store in `storage/app/public` (publicly accessible)
+- `s3` - Store in Amazon S3 (requires configuration)
+
+## Security Settings
+
+### Bcrypt Rounds
+
+```env
+BCRYPT_ROUNDS=12
+```
+
+Higher values = more secure but slower password hashing. 12 is recommended.
+
+### Production Checklist
+
+<Steps>
+  <Step title="Disable Debug Mode">
+    ```env
+    APP_DEBUG=false
+    ```
+  </Step>
+
+  <Step title="Set Production Environment">
+    ```env
+    APP_ENV=production
+    ```
+  </Step>
+
+  <Step title="Use HTTPS">
+    ```env
+    APP_URL=https://yourdomain.com
+    ```
+  </Step>
+
+  <Step title="Strong Database Password">
+    Use a long, random password with special characters.
+  </Step>
+
+  <Step title="Configure Proper Mail Service">
+    Don't use Mailtrap or log driver in production.
+  </Step>
+
+  <Step title="Set Up Queue Worker">
+    Use Supervisor to keep queue worker running:
+
+    ```ini
+    [program:nutrifit-worker]
+    process_name=%(program_name)s_%(process_num)02d
+    command=php /path/to/nutrifit/artisan queue:work --sleep=3 --tries=3
+    autostart=true
+    autorestart=true
+    user=www-data
+    numprocs=2
+    redirect_stderr=true
+    stdout_logfile=/path/to/nutrifit/storage/logs/worker.log
+    ```
+  </Step>
+</Steps>
+
+## Performance Optimization
+
+### Cache Configuration
+
+After making config changes:
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+### Clear All Caches
+
+During development:
+
+```bash
+php artisan optimize:clear
+```
+
+This clears config, route, view, and application cache.
+
+## Verify Configuration
+
+Check current configuration:
+
+```bash
+# View all config
+php artisan config:show
+
+# View specific section
+php artisan config:show database
+php artisan config:show mail
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="rocket" href="/getting-started">
+    Learn about NutriFit's features and core concepts
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture/overview">
+    Understand the system architecture and design patterns
+  </Card>
+</CardGroup>

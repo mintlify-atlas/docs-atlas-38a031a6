@@ -1,0 +1,636 @@
+---
+title: Getting Started
+description: Install and run NutriFit locally in minutes with this quick start guide
+---
+
+## Prerequisites
+
+Before installing NutriFit, ensure your development environment meets these requirements:
+
+### Required Software
+
+<CardGroup cols={2}>
+  <Card title="PHP 8.2+" icon="php">
+    Modern PHP version with required extensions
+  </Card>
+  <Card title="Composer 2.x" icon="box">
+    PHP dependency manager
+  </Card>
+  <Card title="Node.js 18+" icon="node-js">
+    JavaScript runtime for asset compilation
+  </Card>
+  <Card title="Git" icon="git-alt">
+    Version control system
+  </Card>
+</CardGroup>
+
+### Required PHP Extensions
+
+Verify you have these PHP extensions enabled:
+
+```bash
+php -m | grep -E '(pdo|mbstring|tokenizer|xml|ctype|json|bcmath|fileinfo)'
+```
+
+Required extensions:
+- `pdo_sqlite` (or `pdo_mysql` for production)
+- `mbstring`
+- `tokenizer`
+- `xml`
+- `ctype`
+- `json`
+- `bcmath`
+- `fileinfo`
+
+<Warning>
+If any required extensions are missing, install them via your system's package manager before proceeding.
+</Warning>
+
+### Optional Software
+
+- **MySQL 8.0+**: For production database (SQLite used in development)
+- **Docker**: For Laravel Sail containerized environment
+- **Mailtrap Account**: For testing email notifications (free)
+
+## Installation
+
+### Quick Start (Recommended)
+
+The fastest way to get NutriFit running:
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/Rubenpro19/NutriFit.git
+    cd Nutrifit
+    ```
+  </Step>
+  
+  <Step title="Run Automated Setup">
+    ```bash
+    composer run setup
+    ```
+    
+    This single command handles:
+    - ✅ PHP dependency installation
+    - ✅ Environment configuration
+    - ✅ Application key generation
+    - ✅ Database creation and migration
+    - ✅ Node.js dependency installation
+    - ✅ Frontend asset compilation
+    
+    <Tip>
+    The setup script is defined in composer.json:47-53 and automates the entire installation process.
+    </Tip>
+  </Step>
+  
+  <Step title="Seed the Database">
+    ```bash
+    php artisan db:seed
+    ```
+    
+    <Warning>
+    **This step is required** to create the administrator account. Without seeding, you won't be able to log in.
+    </Warning>
+  </Step>
+  
+  <Step title="Start the Application">
+    ```bash
+    composer run dev
+    ```
+    
+    This starts all required services in parallel:
+    - 🟦 Laravel server on `http://localhost:8000`
+    - 🟪 Queue worker for email notifications
+    - 🟧 Vite dev server with hot module replacement
+    
+    See composer.json:55-58 for the dev script configuration.
+  </Step>
+</Steps>
+
+<Note>
+Your application is now running at [http://localhost:8000](http://localhost:8000)
+</Note>
+
+### Manual Installation (Step-by-Step)
+
+If you prefer granular control over the installation process:
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/Rubenpro19/NutriFit.git
+    cd Nutrifit
+    ```
+  </Step>
+  
+  <Step title="Install PHP Dependencies">
+    ```bash
+    composer install
+    ```
+    
+    This installs Laravel 12, Livewire 3, Fortify, DomPDF, and all backend dependencies (see composer.json:11-20).
+  </Step>
+  
+  <Step title="Configure Environment">
+    ```bash
+    cp .env.example .env
+    ```
+    
+    This creates your environment configuration file from the template.
+  </Step>
+  
+  <Step title="Generate Application Key">
+    ```bash
+    php artisan key:generate
+    ```
+    
+    Laravel requires a unique encryption key for security.
+  </Step>
+  
+  <Step title="Create Database">
+    For SQLite (development):
+    ```bash
+    touch database/database.sqlite
+    ```
+    
+    For MySQL (production), create the database manually:
+    ```bash
+    mysql -u root -p -e "CREATE DATABASE nutrifit;"
+    ```
+  </Step>
+  
+  <Step title="Run Database Migrations">
+    ```bash
+    php artisan migrate
+    ```
+    
+    This creates all necessary database tables.
+  </Step>
+  
+  <Step title="Seed Administrator Account">
+    ```bash
+    php artisan db:seed
+    ```
+    
+    <Warning>
+    **Critical**: This creates the administrator account needed for first login.
+    </Warning>
+  </Step>
+  
+  <Step title="Install Node Dependencies">
+    ```bash
+    npm install
+    ```
+    
+    Installs Vite, Tailwind CSS 4, and frontend dependencies (see package.json:8-16).
+  </Step>
+  
+  <Step title="Compile Frontend Assets">
+    For development:
+    ```bash
+    npm run dev
+    ```
+    
+    For production:
+    ```bash
+    npm run build
+    ```
+  </Step>
+</Steps>
+
+## Environment Configuration
+
+Edit your `.env` file to customize the application:
+
+### Basic Configuration
+
+```env
+APP_NAME="NutriFit"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+APP_LOCALE=es
+APP_FALLBACK_LOCALE=es
+```
+
+<Note>
+The application is built for Spanish-speaking markets. Change `APP_LOCALE` if needed.
+</Note>
+
+### Database Configuration
+
+#### SQLite (Development - Default)
+
+```env
+DB_CONNECTION=sqlite
+```
+
+SQLite requires no additional configuration and is perfect for development.
+
+#### MySQL (Production)
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=nutrifit
+DB_USERNAME=root
+DB_PASSWORD=your_secure_password
+```
+
+### Queue Configuration
+
+```env
+QUEUE_CONNECTION=database
+```
+
+NutriFit uses database-driven queues for email notifications. The queue worker must be running to send emails.
+
+### Email Configuration
+
+#### Development (Mailtrap)
+
+For testing without sending real emails:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=sandbox.smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=your_mailtrap_username
+MAIL_PASSWORD=your_mailtrap_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@nutrifit.com"
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+<Tip>
+Sign up for a free [Mailtrap](https://mailtrap.io) account to test email notifications safely.
+</Tip>
+
+#### Production (Real SMTP)
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.your-provider.com
+MAIL_PORT=587
+MAIL_USERNAME=your_email@domain.com
+MAIL_PASSWORD=your_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="noreply@yourdomain.com"
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+### Admin Password Configuration
+
+```env
+ADMIN_PASSWORD=your_custom_password
+```
+
+If not set, the default password is `NutriAdmin123`.
+
+## Running the Application
+
+### Development Mode (All Services)
+
+The easiest way to run all required services:
+
+```bash
+composer run dev
+```
+
+This command starts three processes in parallel (see composer.json:55-58):
+
+<CardGroup cols={3}>
+  <Card title="Web Server" icon="server">
+    Laravel on port 8000
+  </Card>
+  <Card title="Queue Worker" icon="list-check">
+    Processes email notifications
+  </Card>
+  <Card title="Vite Server" icon="bolt">
+    Hot module replacement for frontend
+  </Card>
+</CardGroup>
+
+### Manual Multi-Terminal Setup
+
+If you prefer separate terminal windows for each service:
+
+<Tabs>
+  <Tab title="Terminal 1: Web Server">
+    ```bash
+    php artisan serve
+    ```
+    Access at: `http://localhost:8000`
+  </Tab>
+  
+  <Tab title="Terminal 2: Queue Worker">
+    ```bash
+    php artisan queue:work
+    ```
+    Required for email notifications
+  </Tab>
+  
+  <Tab title="Terminal 3: Vite (Dev)">
+    ```bash
+    npm run dev
+    ```
+    Hot module replacement for development
+  </Tab>
+</Tabs>
+
+### Production Mode
+
+For production deployment:
+
+<Steps>
+  <Step title="Build Assets">
+    ```bash
+    npm run build
+    ```
+    Compiles and optimizes frontend assets
+  </Step>
+  
+  <Step title="Optimize Application">
+    ```bash
+    composer install --optimize-autoloader --no-dev
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+    ```
+  </Step>
+  
+  <Step title="Start Server">
+    ```bash
+    php artisan serve
+    ```
+    Or configure Nginx/Apache as your web server
+  </Step>
+  
+  <Step title="Run Queue Worker as Service">
+    Configure Supervisor to keep queue worker running:
+    
+    ```ini
+    [program:nutrifit-worker]
+    command=php /path/to/nutrifit/artisan queue:work --timeout=120
+    autostart=true
+    autorestart=true
+    user=www-data
+    redirect_stderr=true
+    stdout_logfile=/var/log/nutrifit-worker.log
+    ```
+  </Step>
+</Steps>
+
+## First Login
+
+### Administrator Access
+
+After seeding the database, log in with the administrator account:
+
+<Card title="Administrator Credentials" icon="user-shield">
+  **Email**: `nutifit2026@gmail.com`  
+  **Password**: `NutriAdmin123` (or your custom `ADMIN_PASSWORD` from `.env`)
+</Card>
+
+<Steps>
+  <Step title="Navigate to Login">
+    Open [http://localhost:8000](http://localhost:8000) and click "Login"
+  </Step>
+  
+  <Step title="Enter Admin Credentials">
+    Use the email and password shown above
+  </Step>
+  
+  <Step title="Access Admin Dashboard">
+    You'll be redirected to `/administrador/dashboard`
+  </Step>
+  
+  <Step title="Create Additional Users">
+    Navigate to "Users" → "Create User" to add nutritionists and patients
+  </Step>
+</Steps>
+
+### Creating Test Users
+
+From the admin dashboard, create test users for each role:
+
+<Tabs>
+  <Tab title="Create Nutritionist">
+    1. Go to `/administrador/users/create`
+    2. Fill in user details
+    3. Select role: **Nutricionista**
+    4. Set initial password
+    5. User receives welcome email
+  </Tab>
+  
+  <Tab title="Create Patient">
+    1. Go to `/administrador/users/create`
+    2. Fill in user details
+    3. Select role: **Paciente**
+    4. Set temporary password
+    5. Patient must change password on first login (routes/web.php:132-133)
+  </Tab>
+</Tabs>
+
+### Role-Based Dashboards
+
+Each role has a dedicated dashboard:
+
+| Role | Dashboard URL | Features |
+|------|--------------|----------|
+| Administrator | `/administrador/dashboard` | User management, system oversight, analytics |
+| Nutritionist | `/nutricionista/dashboard` | Schedule management, patient records, appointments |
+| Patient | `/paciente/dashboard` | Appointment booking, history viewing, profile management |
+
+## Verification & Testing
+
+### Verify Installation
+
+<Steps>
+  <Step title="Check Web Server">
+    Visit [http://localhost:8000](http://localhost:8000) - you should see the landing page
+  </Step>
+  
+  <Step title="Test Login">
+    Log in with administrator credentials - should redirect to `/administrador/dashboard`
+  </Step>
+  
+  <Step title="Check Queue Worker">
+    Look for "Processing: ..." messages in the queue worker terminal
+  </Step>
+  
+  <Step title="Test Notifications">
+    Create a test user - check Mailtrap for welcome email
+  </Step>
+</Steps>
+
+### Run Test Suite
+
+NutriFit includes Pest tests (composer.json:28):
+
+```bash
+# Run all tests
+composer test
+
+# Run with coverage report
+php artisan test --coverage
+
+# Run specific test file
+php artisan test --filter=UserTest
+```
+
+### Common Issues
+
+<Accordion title="Database Connection Error">
+  **Problem**: Can't connect to database
+  
+  **Solutions**:
+  - For SQLite: Ensure `database/database.sqlite` file exists and is writable
+  - For MySQL: Verify credentials in `.env` and database exists
+  - Run: `php artisan config:clear` to clear cached config
+</Accordion>
+
+<Accordion title="Queue Not Processing">
+  **Problem**: Emails not sending
+  
+  **Solutions**:
+  - Ensure queue worker is running: `php artisan queue:work`
+  - Check `QUEUE_CONNECTION=database` in `.env`
+  - View failed jobs: `php artisan queue:failed`
+  - Retry failed jobs: `php artisan queue:retry all`
+</Accordion>
+
+<Accordion title="Assets Not Loading">
+  **Problem**: Styles or JavaScript not working
+  
+  **Solutions**:
+  - Ensure Vite dev server is running: `npm run dev`
+  - For production: Run `npm run build` first
+  - Clear browser cache
+  - Check `public/build` directory exists and contains files
+</Accordion>
+
+<Accordion title="Fortify Routes Not Found">
+  **Problem**: Login/register routes give 404
+  
+  **Solutions**:
+  - Clear route cache: `php artisan route:clear`
+  - Verify Fortify is installed: `composer show laravel/fortify`
+  - Check `config/fortify.php` exists
+  - Run: `php artisan optimize:clear`
+</Accordion>
+
+## Next Steps
+
+Now that NutriFit is running:
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="compass" href="/features/authentication">
+    Learn about all available capabilities
+  </Card>
+  <Card title="Configure Schedules" icon="calendar">
+    Set up nutritionist availability schedules
+  </Card>
+  <Card title="Customize Settings" icon="gear">
+    Configure system settings and branding
+  </Card>
+  <Card title="Deploy to Production" icon="cloud-arrow-up">
+    See deployment guides for going live
+  </Card>
+</CardGroup>
+
+## Development Workflow
+
+### Daily Development
+
+Your typical development session:
+
+```bash
+# Start all services
+composer run dev
+
+# Make changes to code
+# Browser automatically reloads via Vite HMR
+
+# Run tests before committing
+composer test
+
+# Fix code style
+./vendor/bin/pint
+```
+
+### Adding Features
+
+<Steps>
+  <Step title="Create Migration">
+    ```bash
+    php artisan make:migration create_your_table
+    php artisan migrate
+    ```
+  </Step>
+  
+  <Step title="Create Model">
+    ```bash
+    php artisan make:model YourModel
+    ```
+  </Step>
+  
+  <Step title="Create Livewire Component">
+    ```bash
+    php artisan make:livewire YourComponent
+    ```
+  </Step>
+  
+  <Step title="Add Routes">
+    Edit `routes/web.php` to add your routes
+  </Step>
+  
+  <Step title="Write Tests">
+    ```bash
+    php artisan make:test YourFeatureTest
+    composer test
+    ```
+  </Step>
+</Steps>
+
+### Scheduled Tasks
+
+NutriFit includes a command for appointment reminders:
+
+```bash
+# Send 24-hour reminders manually
+php artisan appointments:send-reminders
+```
+
+To automate, add to crontab:
+
+```bash
+* * * * * cd /path/to/nutrifit && php artisan schedule:run >> /dev/null 2>&1
+```
+
+<Tip>
+The scheduler automatically runs the reminder command daily at the configured time.
+</Tip>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Laravel Documentation" icon="book" href="https://laravel.com/docs">
+    Official Laravel 12 documentation
+  </Card>
+  <Card title="Livewire Documentation" icon="bolt" href="https://livewire.laravel.com">
+    Learn about Livewire components
+  </Card>
+  <Card title="Tailwind CSS" icon="paintbrush" href="https://tailwindcss.com">
+    Tailwind CSS utility reference
+  </Card>
+  <Card title="Fortify Documentation" icon="shield" href="https://laravel.com/docs/fortify">
+    Authentication features
+  </Card>
+</CardGroup>
+
+<Note>
+**Need Help?** Check the project's GitHub repository for issues and discussions: [NutriFit on GitHub](https://github.com/Rubenpro19/NutriFit)
+</Note>

@@ -1,0 +1,444 @@
+---
+title: "Appointment Notifications"
+description: "Email notifications for appointment lifecycle events in NutriFit"
+---
+
+## Overview
+
+Appointment notifications keep patients and nutritionists informed about appointment-related events throughout the appointment lifecycle.
+
+## Notification Classes
+
+### AppointmentCreatedNotification
+
+**File**: `app/Notifications/AppointmentCreatedNotification.php`
+
+**Purpose**: Notifies the nutritionist when a new appointment is created.
+
+**Recipient**: Nutritionist
+
+**Trigger**: When a patient books a new appointment
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    public Appointment $appointment
+)
+```
+
+**Email Content**:
+- **Subject**: "🗓️ Nueva Cita Agendada - NutriFit"
+- **Greeting**: "¡Hola Dr(a). {nutritionist_name}!"
+- **Information Included**:
+  - Patient name
+  - Appointment date (formatted as `d/m/Y`)
+  - Appointment time (formatted as `H:i`)
+- **Call to Action**: "Ver Detalles" → `/nutricionista/dashboard`
+
+**Database Notification Data**:
+```php
+[
+    'appointment_id' => $appointment->id,
+    'patient_name' => $appointment->paciente->name,
+    'date' => 'Y-m-d',
+    'time' => 'H:i',
+]
+```
+
+---
+
+### AppointmentCreatedForPatientNotification
+
+**File**: `app/Notifications/AppointmentCreatedForPatientNotification.php`
+
+**Purpose**: Confirms appointment creation to the patient with full details.
+
+**Recipient**: Patient
+
+**Trigger**: When a patient successfully books an appointment
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    public Appointment $appointment
+)
+```
+
+**Email Content**:
+- **Subject**: "✅ Cita Confirmada - NutriFit"
+- **Greeting**: "¡Hola {patient_name}!"
+- **Information Included**:
+  - Nutritionist name
+  - Appointment date (formatted as `d/m/Y`)
+  - Appointment time (formatted as `H:i`)
+  - Appointment type (Primera Consulta, Consulta de Seguimiento, Control)
+- **Call to Action**: "Ver Mi Cita" → `/paciente/citas/{appointment_id}`
+- **Additional Note**: Cancellation policy (24 hours advance notice)
+
+**Appointment Type Labels**:
+```php
+'primera_vez' => 'Primera Consulta'
+'seguimiento' => 'Consulta de Seguimiento'
+'control' => 'Control'
+default => 'Consulta'
+```
+
+**Database Notification Data**:
+```php
+[
+    'appointment_id' => $appointment->id,
+    'nutricionista_name' => $appointment->nutricionista->name,
+    'date' => 'Y-m-d',
+    'time' => 'H:i',
+]
+```
+
+---
+
+### AppointmentConfirmedForPatient
+
+**File**: `app/Notifications/AppointmentConfirmedForPatient.php`
+
+**Purpose**: Sends confirmation when appointment status changes to confirmed.
+
+**Recipient**: Patient
+
+**Trigger**: When nutritionist confirms a pending appointment
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    public Appointment $appointment
+)
+```
+
+**Email Content**:
+- **Subject**: "✅ Cita Agendada Exitosamente - NutriFit"
+- **Greeting**: "¡Hola {patient_name}!"
+- **Information Included**:
+  - Nutritionist name (with "Dr(a)." prefix)
+  - Appointment date
+  - Appointment time
+  - Status: Pendiente
+- **Call to Action**: "Ver Mis Citas" → `/paciente/citas`
+- **Additional Note**: Cancellation policy reminder
+
+**Database Notification Data**:
+```php
+[
+    'appointment_id' => $appointment->id,
+    'nutricionista_name' => $appointment->nutricionista->name,
+    'date' => 'Y-m-d',
+    'time' => 'H:i',
+]
+```
+
+---
+
+### AppointmentCancelledByNutricionista
+
+**File**: `app/Notifications/AppointmentCancelledByNutricionista.php`
+
+**Purpose**: Notifies both parties when a nutritionist cancels an appointment.
+
+**Recipients**: Both nutritionist and patient (different messages)
+
+**Trigger**: When nutritionist cancels an appointment
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    public Appointment $appointment,
+    public string $recipientType // 'paciente' or 'nutricionista'
+)
+```
+
+**Email Content (for Nutritionist)**:
+- **Subject**: "⚠️ Cita Cancelada - NutriFit"
+- **Greeting**: "¡Hola {nutritionist_name}!"
+- **Message**: Confirmation of cancellation
+- **Information**: Date, time, patient name
+- **Call to Action**: "Ver mis Citas" → `/nutricionista/citas`
+
+**Email Content (for Patient)**:
+- **Subject**: "⚠️ Cita Cancelada por Nutricionista - NutriFit"
+- **Greeting**: "¡Hola {patient_name}!"
+- **Message**: Notification that nutritionist cancelled
+- **Information**: Date, time, nutritionist name
+- **Call to Action**: "Agendar Nueva Cita" → `/paciente/dashboard`
+- **Additional Note**: Apology and invitation to book new appointment
+
+---
+
+### AppointmentCancelledByPatient
+
+**File**: `app/Notifications/AppointmentCancelledByPatient.php`
+
+**Purpose**: Notifies both parties when a patient cancels an appointment.
+
+**Recipients**: Both patient and nutritionist (different messages)
+
+**Trigger**: When patient cancels an appointment
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    public Appointment $appointment,
+    public string $recipientType // 'paciente' or 'nutricionista'
+)
+```
+
+**Email Content (for Patient)**:
+- **Subject**: "⚠️ Cita Cancelada - NutriFit"
+- **Greeting**: "¡Hola {patient_name}!"
+- **Message**: Confirmation of cancellation
+- **Information**: Date, time, nutritionist name
+- **Call to Action**: "Ir a mi Dashboard" → `/paciente/dashboard`
+
+**Email Content (for Nutritionist)**:
+- **Subject**: "⚠️ Cita Cancelada por Paciente - NutriFit"
+- **Greeting**: "¡Hola {nutritionist_name}!"
+- **Message**: Notification that patient cancelled
+- **Information**: Date, time, patient name
+- **Note**: Time slot is now available for other patients
+- **Call to Action**: "Ver mis Citas" → `/nutricionista/citas`
+
+---
+
+### AppointmentRescheduledNotification
+
+**File**: `app/Notifications/AppointmentRescheduledNotification.php`
+
+**Purpose**: Notifies patient when appointment date/time is changed.
+
+**Recipient**: Patient
+
+**Trigger**: When appointment is rescheduled to a new date/time
+
+**Delivery Channels**: `mail`, `database`
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    Appointment $appointment,
+    $oldStartTime, // Carbon instance or datetime string
+    ?string $rescheduleReason = null
+)
+```
+
+**Email Content**:
+- **Subject**: "🔄 Tu cita ha sido reagendada - NutriFit"
+- **Greeting**: "¡Hola {patient_name}!"
+- **Information Included**:
+  - Original date and time (formatted in Spanish)
+  - New date and time (formatted in Spanish)
+  - Nutritionist name
+  - Appointment type label
+  - Duration: 45 minutes
+  - Reschedule reason (if provided)
+- **Call to Action**: "Ver Cita" → `/paciente/dashboard`
+
+**Date Formatting**:
+- Uses Carbon's `locale('es')` for Spanish formatting
+- Format: "dddd, D [de] MMMM [de] YYYY" (e.g., "lunes, 5 de marzo de 2026")
+- Time format: "h:i A" (12-hour format with AM/PM)
+
+**Database Notification Data**:
+```php
+[
+    'type' => 'appointment_rescheduled',
+    'appointment_id' => $appointment->id,
+    'nutricionista_name' => $appointment->nutricionista->name,
+    'old_start_time' => 'ISO 8601 string',
+    'new_start_time' => 'ISO 8601 string',
+    'new_date_formatted' => 'Spanish formatted date',
+    'new_time_formatted' => '12h:mm AM/PM',
+    'appointment_type' => 'primera_vez|seguimiento|control',
+    'reschedule_reason' => 'optional reason',
+]
+```
+
+---
+
+### AppointmentReminderNotification
+
+**File**: `app/Notifications/AppointmentReminderNotification.php`
+
+**Purpose**: Reminds users about upcoming appointments (24 hours before).
+
+**Recipients**: Both patient and nutritionist
+
+**Trigger**: Automated reminder 24 hours before appointment
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    public Appointment $appointment
+)
+```
+
+**Email Content**:
+- **Subject**: "⏰ Recordatorio: Cita Mañana - NutriFit"
+- **Greeting**: "¡Hola {user_name}!"
+- **Message**: Reminder about tomorrow's appointment
+- **Information Included** (role-based):
+  - For patients: Nutritionist name (with "Dr(a)." prefix)
+  - For nutritionists: Patient name
+  - Appointment date
+  - Appointment time
+- **Call to Action**: 
+  - Patients: "Ver Detalles" → `/paciente/citas`
+  - Nutritionists: "Ver Detalles" → `/nutricionista/dashboard`
+- **Additional Note**: Punctuality reminder
+
+**Role Detection**:
+```php
+$isPaciente = $notifiable->role->name === 'paciente';
+```
+
+**Database Notification Data**:
+```php
+[
+    'appointment_id' => $appointment->id,
+    'date' => 'Y-m-d',
+    'time' => 'H:i',
+]
+```
+
+---
+
+### AttentionCompletedNotification
+
+**File**: `app/Notifications/AttentionCompletedNotification.php`
+
+**Purpose**: Notifies patient when their nutritional attention/consultation is completed.
+
+**Recipient**: Patient
+
+**Trigger**: When nutritionist marks attention as completed with diagnosis and recommendations
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    public Attention $attention
+)
+```
+
+**Email Content**:
+- **Subject**: "✅ Atención Nutricional Completada - NutriFit"
+- **Greeting**: "¡Hola {patient_name}!"
+- **Message**: Confirmation that nutritional attention is complete
+- **Information Included**:
+  - Nutritionist name (with "Dr(a)." prefix)
+  - Appointment date and time
+  - Recorded weight (kg)
+  - BMI (formatted to 2 decimals)
+- **Additional Information**: Personalized nutrition plan with diagnosis and recommendations
+- **Call to Action**: "Ver Reporte Completo" → `/paciente/citas/{appointment_id}`
+- **Additional Notes**: 
+  - Follow recommendations reminder
+  - Invitation to contact nutritionist with questions
+
+**Data Access**:
+```php
+$weight = $attention->attentionData->weight ?? 'N/A';
+$bmi = $attention->attentionData->bmi ?? 'N/A';
+```
+
+**Database Notification Data**:
+```php
+[
+    'attention_id' => $attention->id,
+    'appointment_id' => $attention->appointment_id,
+    'nutricionista_name' => $attention->nutricionista->name,
+    'date' => 'Y-m-d',
+    'time' => 'H:i',
+]
+```
+
+## Usage Examples
+
+### Send Appointment Created Notification
+
+```php
+use App\Notifications\AppointmentCreatedNotification;
+use App\Notifications\AppointmentCreatedForPatientNotification;
+
+// Notify nutritionist
+$appointment->nutricionista->notify(
+    new AppointmentCreatedNotification($appointment)
+);
+
+// Notify patient
+$appointment->paciente->notify(
+    new AppointmentCreatedForPatientNotification($appointment)
+);
+```
+
+### Send Cancellation Notification
+
+```php
+use App\Notifications\AppointmentCancelledByPatient;
+
+// Notify patient (confirmation)
+$appointment->paciente->notify(
+    new AppointmentCancelledByPatient($appointment, 'paciente')
+);
+
+// Notify nutritionist
+$appointment->nutricionista->notify(
+    new AppointmentCancelledByPatient($appointment, 'nutricionista')
+);
+```
+
+### Send Reschedule Notification
+
+```php
+use App\Notifications\AppointmentRescheduledNotification;
+
+$oldStartTime = $appointment->start_time; // Before update
+$appointment->start_time = $newDateTime;  // Update
+$appointment->save();
+
+$appointment->paciente->notify(
+    new AppointmentRescheduledNotification(
+        $appointment,
+        $oldStartTime,
+        'El nutricionista tuvo una emergencia'
+    )
+);
+```
+
+### Send Reminder (Scheduled Job)
+
+```php
+use App\Notifications\AppointmentReminderNotification;
+
+// In a scheduled command (runs daily)
+$tomorrowAppointments = Appointment::whereDate(
+    'start_time',
+    now()->addDay()->toDateString()
+)->get();
+
+foreach ($tomorrowAppointments as $appointment) {
+    // Notify patient
+    $appointment->paciente->notify(
+        new AppointmentReminderNotification($appointment)
+    );
+    
+    // Notify nutritionist
+    $appointment->nutricionista->notify(
+        new AppointmentReminderNotification($appointment)
+    );
+}
+```
+
+## Best Practices
+
+1. **Always send to both parties** when appropriate (cancellations, reschedules)
+2. **Include clear call-to-action buttons** to relevant dashboard pages
+3. **Format dates in Spanish** using Carbon's locale features
+4. **Provide context** about why the appointment status changed
+5. **Include appointment details** (date, time, other party's name)
+6. **Use emojis consistently** for visual identification of notification type
+7. **Handle missing data gracefully** using null coalescing operators

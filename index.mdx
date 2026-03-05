@@ -1,97 +1,210 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Welcome to NutriFit
+description: A comprehensive nutrition management platform that connects nutritionists with patients for appointment scheduling, clinical records, and automated notifications.
 ---
 
-## Setting up
+<div style={{
+  background: 'linear-gradient(135deg, #94cb04 0%, #7aa803 100%)',
+  padding: '60px 40px',
+  borderRadius: '8px',
+  marginBottom: '48px',
+  color: 'white'
+}}>
+  <h1 style={{
+    fontSize: '48px',
+    fontWeight: '700',
+    marginBottom: '16px',
+    color: 'white'
+  }}>
+    NutriFit
+  </h1>
+  <p style={{
+    fontSize: '18px',
+    marginBottom: '32px',
+    opacity: '0.95',
+    maxWidth: '600px'
+  }}>
+    Transform your nutrition practice with intelligent appointment scheduling, comprehensive clinical records, and automated patient communication.
+  </p>
+  <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+    <a 
+      href="/getting-started" 
+      style={{
+        background: 'white',
+        color: '#1a1a1a',
+        padding: '12px 24px',
+        borderRadius: '6px',
+        fontWeight: '700',
+        textDecoration: 'none',
+        display: 'inline-block'
+      }}
+    >
+      Get Started
+    </a>
+    <a 
+      href="https://github.com/Rubenpro19/NutriFit" 
+      style={{
+        background: 'rgba(255, 255, 255, 0.2)',
+        color: 'white',
+        padding: '12px 24px',
+        borderRadius: '6px',
+        fontWeight: '700',
+        textDecoration: 'none',
+        display: 'inline-block',
+        border: '2px solid white'
+      }}
+    >
+      View on GitHub
+    </a>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## Built for Modern Nutrition Practices
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+NutriFit is a full-stack SaaS platform designed to streamline the relationship between nutritionists and patients. Built with Laravel 12, Livewire 3, and Tailwind CSS 4, it provides a robust, reactive user experience with enterprise-grade security.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Multi-Role System" icon="users" href="/features/user-roles">
+    Separate dashboards for administrators, nutritionists, and patients with role-based permissions
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Smart Scheduling" icon="calendar" href="/features/appointments">
+    Intelligent appointment management with real-time availability and conflict prevention
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Clinical Records" icon="notes-medical" href="/features/clinical-records">
+    Comprehensive patient records with anthropometric data and professional PDF reports
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Automated Notifications" icon="bell" href="/features/notifications">
+    Email notifications for appointments, reminders, and system events via queue workers
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key Features
 
-Everything you need to create world-class documentation.
+<AccordionGroup>
+  <Accordion title="📅 Appointment Management">
+    - Real-time availability checking
+    - Conflict-free scheduling
+    - Appointment states (pending, confirmed, completed, cancelled)
+    - 24-hour automatic reminders
+    - Rescheduling capabilities
+  </Accordion>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+  <Accordion title="🔐 Enterprise Security">
+    - Laravel Fortify authentication
+    - Email verification required
+    - Two-factor authentication (2FA)
+    - Password reset and management
+    - Role-based access control
+  </Accordion>
 
-## Need inspiration?
+  <Accordion title="📊 Dashboard Analytics">
+    - Appointment statistics and trends
+    - Patient progress tracking
+    - Nutritionist performance metrics
+    - System-wide reporting
+  </Accordion>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+  <Accordion title="📄 PDF Generation">
+    - Professional clinical reports
+    - Customizable templates
+    - Patient medical history
+    - Nutritional assessments
+  </Accordion>
+
+  <Accordion title="⚡ Modern Tech Stack">
+    - **Backend**: Laravel 12 with PHP 8.2+
+    - **Frontend**: Livewire 3 + Flux UI
+    - **Styling**: Tailwind CSS 4
+    - **Database**: SQLite/MySQL with Eloquent ORM
+    - **Build Tool**: Vite 7
+  </Accordion>
+</AccordionGroup>
+
+## Quick Start
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/Rubenpro19/NutriFit.git
+    cd Nutrifit
+    ```
+  </Step>
+
+  <Step title="Run automated setup">
+    ```bash
+    composer run setup
+    ```
+    This installs dependencies, configures the environment, runs migrations, and builds assets.
+  </Step>
+
+  <Step title="Seed the database">
+    ```bash
+    php artisan db:seed
+    ```
+    Creates the default admin account and initial data.
+  </Step>
+
+  <Step title="Start development servers">
+    ```bash
+    composer run dev
+    ```
+    Launches the Laravel server, queue worker, and Vite dev server simultaneously.
+  </Step>
+</Steps>
+
+<Note>
+  The default admin credentials are: `nutifit2026@gmail.com` / `NutriAdmin123` (unless configured via `ADMIN_PASSWORD` environment variable)
+</Note>
+
+## Use Cases
+
+<CardGroup cols={3}>
+  <Card title="Nutrition Clinics" icon="hospital">
+    Digitize patient management and eliminate paper-based workflows
+  </Card>
+  <Card title="Private Practices" icon="user-doctor">
+    Professional tools for independent nutritionists
+  </Card>
+  <Card title="Wellness Centers" icon="heart-pulse">
+    Integrated nutrition services for holistic health facilities
+  </Card>
+</CardGroup>
+
+## What Makes NutriFit Different?
+
+<div style={{
+  background: '#f5f5f5',
+  padding: '32px',
+  borderRadius: '8px',
+  marginTop: '32px'
+}}>
+  
+**Real-World Production System**
+
+NutriFit was developed as a final year engineering project and deployed to an actual nutrition clinic. It's not a demo or prototype — it's a battle-tested system handling real patients, appointments, and clinical data.
+
+**Key Achievements:**
+- ✅ Reduced administrative time by 70%
+- ✅ Eliminated manual appointment conflicts
+- ✅ Automated patient communication
+- ✅ Complete digital patient history
+- ✅ Zero data loss with automated backups
+
+</div>
+
+## Ready to Get Started?
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation/quick-setup">
+    Get NutriFit running in under 5 minutes
+  </Card>
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture/overview">
+    Understand how NutriFit is built
+  </Card>
+  <Card title="User Guides" icon="book-open" href="/guides/admin-dashboard">
+    Learn how to use each role's features
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/models/user">
+    Explore models, controllers, and components
+  </Card>
+</CardGroup>

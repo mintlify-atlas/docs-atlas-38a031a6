@@ -1,0 +1,276 @@
+---
+title: 'Patient Livewire Components'
+description: 'Components for patients to view and manage their appointments'
+---
+
+## Overview
+
+Patient components provide interfaces for patients to view their appointment history, filter appointments, and track their interactions with nutritionists. These components are restricted to users with the `paciente` role.
+
+## AppointmentList
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:10`
+
+**View**: `resources/views/livewire/paciente/appointment-list.blade.php`
+
+### Purpose
+
+Provides a paginated, filterable list of all appointments for the authenticated patient, with options to filter by state, nutritionist, and date range.
+
+### Traits
+
+- `WithPagination` - Enables pagination support
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `estado` | `string` | `''` | Filter by appointment state |
+| `nutricionista` | `string` | `''` | Filter by nutritionist ID |
+| `fecha_desde` | `string` | `''` | Start date for date range filter |
+| `fecha_hasta` | `string` | `''` | End date for date range filter |
+
+### Query String Parameters
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:19`
+
+The component persists filter state in the URL:
+
+```php
+protected $queryString = [
+    'estado' => ['except' => ''],
+    'nutricionista' => ['except' => ''],
+    'fecha_desde' => ['except' => ''],
+    'fecha_hasta' => ['except' => ''],
+];
+```
+
+This enables:
+- Bookmarkable filtered appointment views
+- Browser back/forward navigation with filters preserved
+- Shareable links with specific filters applied
+
+### Methods
+
+#### `updatingEstado(): void`
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:26`
+
+Resets pagination when the appointment state filter changes.
+
+```php
+public function updatingEstado()
+{
+    $this->resetPage();
+}
+```
+
+#### `updatingNutricionista(): void`
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:31`
+
+Resets pagination when the nutritionist filter changes.
+
+#### `updatingFechaDesde(): void`
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:36`
+
+Resets pagination when the start date filter changes.
+
+#### `updatingFechaHasta(): void`
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:41`
+
+Resets pagination when the end date filter changes.
+
+#### `limpiarFiltros(): void`
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:46`
+
+Resets all filters to their default empty state and returns to page 1.
+
+```php
+public function limpiarFiltros()
+{
+    $this->reset(['estado', 'nutricionista', 'fecha_desde', 'fecha_hasta']);
+    $this->resetPage();
+}
+```
+
+**Usage**: Typically triggered by a "Clear Filters" button in the view.
+
+#### `render()`
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:52`
+
+Builds and executes the query to fetch the patient's filtered appointments.
+
+**Base Query**:
+```php
+$query = Appointment::where('paciente_id', auth()->id())
+    ->with(['nutricionista', 'appointmentState'])
+    ->orderBy('start_time', 'desc');
+```
+
+**Eager Loading**:
+- `nutricionista` - The nutritionist associated with the appointment
+- `appointmentState` - The current state of the appointment (pending, completed, cancelled)
+
+**Filtering Logic**:
+
+1. **By Appointment State** (`app/Livewire/Paciente/AppointmentList.php:59`)
+   ```php
+   if ($this->estado) {
+       $query->whereHas('appointmentState', function ($q) {
+           $q->where('name', $this->estado);
+       });
+   }
+   ```
+
+2. **By Nutritionist** (`app/Livewire/Paciente/AppointmentList.php:66`)
+   ```php
+   if ($this->nutricionista) {
+       $query->where('nutricionista_id', $this->nutricionista);
+   }
+   ```
+
+3. **By Date Range** (`app/Livewire/Paciente/AppointmentList.php:71`)
+   ```php
+   if ($this->fecha_desde) {
+       $query->whereDate('start_time', '>=', $this->fecha_desde);
+   }
+   
+   if ($this->fecha_hasta) {
+       $query->whereDate('start_time', '<=', $this->fecha_hasta);
+   }
+   ```
+
+**Pagination**: 10 appointments per page
+
+**Additional Data**:
+- `nutricionistas` - List of all nutritionists for the filter dropdown, ordered alphabetically by name
+
+**Returns**:
+- `appointments` - Paginated collection of appointments
+- `nutricionistas` - Collection of nutritionist users for filtering
+
+### Usage Example
+
+```blade
+<livewire:paciente.appointment-list />
+```
+
+### View Integration
+
+The component is typically used in a patient dashboard with filter controls:
+
+```blade
+<div>
+    <!-- Filters -->
+    <div class="filters">
+        <select wire:model.live="estado">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="completada">Completada</option>
+            <option value="cancelada">Cancelada</option>
+        </select>
+        
+        <select wire:model.live="nutricionista">
+            <option value="">Todos los nutricionistas</option>
+            @foreach($nutricionistas as $n)
+                <option value="{{ $n->id }}">{{ $n->name }}</option>
+            @endforeach
+        </select>
+        
+        <input type="date" wire:model.live="fecha_desde" />
+        <input type="date" wire:model.live="fecha_hasta" />
+        
+        <button wire:click="limpiarFiltros">Limpiar filtros</button>
+    </div>
+    
+    <!-- Appointments List -->
+    @foreach($appointments as $appointment)
+        <!-- Appointment card -->
+    @endforeach
+    
+    {{ $appointments->links() }}
+</div>
+```
+
+## Filter Behavior
+
+### Live Updates
+
+All filters use `wire:model.live` to automatically update the appointment list as soon as a filter value changes, without requiring a button click.
+
+### Combined Filters
+
+Filters can be combined. For example:
+- Show only pending appointments with a specific nutritionist
+- Show completed appointments within a date range
+- Show all appointments with a specific nutritionist from a specific date onwards
+
+### Date Range Validation
+
+The component doesn't enforce that `fecha_desde` must be before `fecha_hasta`. If you set an end date before a start date, the query will return no results (which is expected database behavior).
+
+## Security Considerations
+
+- Component automatically filters appointments to only show those belonging to the authenticated patient
+- Uses `auth()->id()` to ensure patients can only view their own appointments
+- All inputs are sanitized through Livewire's automatic escaping
+- Date inputs are validated through HTML5 date input type
+- Nutritionist filter validates against actual user IDs
+
+## Performance Optimizations
+
+### Eager Loading
+
+**Location**: `app/Livewire/Paciente/AppointmentList.php:55`
+
+The component eager loads related models to prevent N+1 query problems:
+
+```php
+->with(['nutricionista', 'appointmentState'])
+```
+
+Without eager loading, displaying 10 appointments could trigger 21 queries (1 for appointments + 10 for nutritionists + 10 for states). With eager loading, it only triggers 3 queries.
+
+### Pagination
+
+Using `paginate(10)` instead of `get()` ensures only 10 records are fetched from the database at a time, reducing memory usage and query time for patients with many appointments.
+
+### Indexed Queries
+
+The filters use indexed columns:
+- `paciente_id` - Foreign key index
+- `nutricionista_id` - Foreign key index
+- `start_time` - Likely indexed for sorting performance
+
+## Related Models
+
+- `App\Models\Appointment` - Appointment records
+- `App\Models\User` - User accounts (for nutritionists)
+- `App\Models\AppointmentState` - Appointment states (pending, completed, cancelled)
+
+## Related Components
+
+Patients may also interact with:
+- Settings components for managing their profile
+- Notification components for appointment reminders
+
+## Appointment States
+
+Typical appointment states in NutriFit:
+- **pendiente** - Appointment is scheduled and upcoming
+- **completada** - Appointment was completed successfully
+- **cancelada** - Appointment was cancelled
+
+## Future Enhancements
+
+Potential improvements for this component:
+1. Add export functionality to download appointment history
+2. Add calendar view alongside list view
+3. Add appointment rescheduling capability
+4. Add filtering by appointment type or service
+5. Add statistics summary (total appointments, completed, cancelled)

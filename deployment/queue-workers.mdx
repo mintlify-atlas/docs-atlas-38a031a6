@@ -1,0 +1,672 @@
+---
+title: 'Queue Workers Setup'
+description: 'Configure and manage queue workers for background job processing in NutriFit'
+---
+
+Queue workers are essential for NutriFit's email notification system. This guide covers setup, configuration, monitoring, and troubleshooting of Laravel queue workers.
+
+## Why Queue Workers Matter
+
+<Info>
+  NutriFit relies heavily on queue workers for:
+  - **Email notifications** (confirmations, reminders, cancellations)
+  - **PDF generation** for attention records
+  - **Background processing** to keep the UI responsive
+  
+  Without queue workers, emails won't be sent and users won't receive important notifications.
+</Info>
+
+## Queue Configuration
+
+### Database Queue (Default)
+
+NutriFit uses database queues by default, requiring no additional services:
+
+```bash
+# .env
+QUEUE_CONNECTION=database
+```
+
+**Benefits:**
+- Simple setup
+- No additional services required
+- Works on any hosting
+- Good for low to medium traffic
+
+**Configuration:**
+
+```bash
+# Create jobs table if not exists
+php artisan queue:table
+php artisan migrate
+```
+
+### Redis Queue (Recommended for Production)
+
+For better performance and reliability:
+
+```bash
+# .env
+QUEUE_CONNECTION=redis
+
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+```
+
+<Steps>
+  <Step title="Install Redis">
+    ```bash
+    # Ubuntu/Debian
+    sudo apt install redis-server
+    sudo systemctl start redis
+    sudo systemctl enable redis
+    ```
+  </Step>
+
+  <Step title="Install PHP Redis Extension">
+    ```bash
+    sudo apt install php8.2-redis
+    sudo systemctl restart php8.2-fpm
+    ```
+  </Step>
+
+  <Step title="Test Connection">
+    ```bash
+    redis-cli ping
+    # Should return: PONG
+    ```
+  </Step>
+</Steps>
+
+**Benefits over database:**
+- Faster job processing
+- Better concurrency
+- Lower database load
+- Industry standard
+
+## Running Queue Workers
+
+### Development
+
+For local development, run the queue worker manually:
+
+```bash
+# Process jobs continuously
+php artisan queue:work
+
+# Process with verbose output
+php artisan queue:work --verbose
+
+# Process specific queue
+php artisan queue:work --queue=high,default,low
+
+# Process one job and exit
+php artisan queue:work --once
+```
+
+<Tip>
+  Use the `composer run dev` script to automatically start the queue worker alongside your dev server:
+  
+  ```bash
+  composer run dev
+  ```
+  
+  This runs Laravel, Vite, and the queue worker simultaneously.
+</Tip>
+
+### Production with Supervisor (Recommended)
+
+Supervisor ensures queue workers stay running and restart automatically if they crash.
+
+<Steps>
+  <Step title="Install Supervisor">
+    ```bash
+    # Ubuntu/Debian
+    sudo apt install supervisor
+    
+    # Start Supervisor
+    sudo systemctl start supervisor
+    sudo systemctl enable supervisor
+    ```
+  </Step>
+
+  <Step title="Create Supervisor Configuration">
+    Create `/etc/supervisor/conf.d/nutrifit-worker.conf`:
+    
+    ```ini
+    [program:nutrifit-worker]
+    process_name=%(program_name)s_%(process_num)02d
+    command=php /var/www/nutrifit/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
+    autostart=true
+    autorestart=true
+    stopasgroup=true
+    killasgroup=true
+    user=www-data
+    numprocs=2
+    redirect_stderr=true
+    stdout_logfile=/var/www/nutrifit/storage/logs/worker.log
+    stopwaitsecs=3600
+    ```
+    
+    **Configuration breakdown:**
+    - `command`: Path to your application's artisan file
+    - `numprocs=2`: Runs 2 worker processes (adjust based on load)
+    - `--sleep=3`: Wait 3 seconds when no jobs available
+    - `--tries=3`: Retry failed jobs up to 3 times
+    - `--max-time=3600`: Restart worker after 1 hour
+    - `user=www-data`: Run as web server user
+  </Step>
+
+  <Step title="Update Supervisor">
+    ```bash
+    # Reload configuration
+    sudo supervisorctl reread
+    sudo supervisorctl update
+    
+    # Start workers
+    sudo supervisorctl start nutrifit-worker:*
+    ```
+  </Step>
+
+  <Step title="Verify Workers Are Running">
+    ```bash
+    sudo supervisorctl status
+    ```
+    
+    Expected output:
+    ```
+    nutrifit-worker:nutrifit-worker_00   RUNNING   pid 12345, uptime 0:01:23
+    nutrifit-worker:nutrifit-worker_01   RUNNING   pid 12346, uptime 0:01:23
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  Replace `/var/www/nutrifit` with your actual application path.
+</Note>
+
+### Supervisor Management Commands
+
+```bash
+# Check status
+sudo supervisorctl status nutrifit-worker:*
+
+# Start workers
+sudo supervisorctl start nutrifit-worker:*
+
+# Stop workers
+sudo supervisorctl stop nutrifit-worker:*
+
+# Restart workers (after code deployment)
+sudo supervisorctl restart nutrifit-worker:*
+
+# View logs
+sudo supervisorctl tail -f nutrifit-worker:nutrifit-worker_00
+```
+
+## Laravel Forge Integration
+
+If using Laravel Forge, queue workers are managed automatically:
+
+<Steps>
+  <Step title="Add Queue Worker">
+    1. Go to your site in Forge
+    2. Navigate to **Queue** tab
+    3. Click **Add Worker**
+  </Step>
+
+  <Step title="Configure Worker">
+    - **Connection:** `database` or `redis`
+    - **Queue:** `default`
+    - **Processes:** `2` (or more based on traffic)
+    - **Max Tries:** `3`
+    - **Max Time:** `3600` seconds
+    - **Sleep:** `3` seconds
+  </Step>
+
+  <Step title="Save and Start">
+    Forge automatically:
+    - Creates Supervisor configuration
+    - Starts the worker
+    - Monitors and restarts if needed
+  </Step>
+</Steps>
+
+<Check>Forge restarts queue workers automatically on deployments.</Check>
+
+## Systemd Service (Alternative to Supervisor)
+
+For systems without Supervisor:
+
+<Steps>
+  <Step title="Create Service File">
+    Create `/etc/systemd/system/nutrifit-queue.service`:
+    
+    ```ini
+    [Unit]
+    Description=NutriFit Queue Worker
+    After=network.target
+    
+    [Service]
+    Type=simple
+    User=www-data
+    Group=www-data
+    Restart=always
+    RestartSec=5
+    ExecStart=/usr/bin/php /var/www/nutrifit/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
+    StandardOutput=append:/var/www/nutrifit/storage/logs/queue.log
+    StandardError=append:/var/www/nutrifit/storage/logs/queue-error.log
+    
+    [Install]
+    WantedBy=multi-user.target
+    ```
+  </Step>
+
+  <Step title="Enable and Start Service">
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable nutrifit-queue
+    sudo systemctl start nutrifit-queue
+    ```
+  </Step>
+
+  <Step title="Manage Service">
+    ```bash
+    # Check status
+    sudo systemctl status nutrifit-queue
+    
+    # Restart
+    sudo systemctl restart nutrifit-queue
+    
+    # View logs
+    sudo journalctl -u nutrifit-queue -f
+    ```
+  </Step>
+</Steps>
+
+## Queue Monitoring
+
+### Check Queue Status
+
+```bash
+# View pending jobs
+php artisan queue:monitor
+
+# Check failed jobs
+php artisan queue:failed
+
+# Retry failed jobs
+php artisan queue:retry all
+
+# Clear failed jobs
+php artisan queue:flush
+```
+
+### Database Queue Monitoring
+
+Check jobs table:
+
+```sql
+-- Pending jobs
+SELECT COUNT(*) FROM jobs;
+
+-- Failed jobs
+SELECT * FROM failed_jobs ORDER BY failed_at DESC LIMIT 10;
+
+-- Jobs by queue
+SELECT queue, COUNT(*) FROM jobs GROUP BY queue;
+```
+
+### Worker Process Monitoring
+
+```bash
+# Check if workers are running
+ps aux | grep 'queue:work'
+
+# Count active workers
+ps aux | grep 'queue:work' | grep -v grep | wc -l
+
+# Monitor resource usage
+top -u www-data
+```
+
+## Queue Priority
+
+NutriFit can use multiple queues with different priorities:
+
+```bash
+# Process high priority jobs first
+php artisan queue:work --queue=high,default,low
+```
+
+### Dispatching to Specific Queues
+
+```php
+// In your code
+Mail::to($user)->queue(new AppointmentConfirmation($appointment));
+
+// Specify queue
+Mail::to($user)->queue(
+    (new AppointmentReminder($appointment))->onQueue('high')
+);
+```
+
+### Supervisor Configuration for Multiple Queues
+
+```ini
+[program:nutrifit-high-priority]
+command=php /var/www/nutrifit/artisan queue:work --queue=high --tries=3
+numprocs=2
+
+[program:nutrifit-default]
+command=php /var/www/nutrifit/artisan queue:work --queue=default --tries=3
+numprocs=1
+```
+
+## Handling Failed Jobs
+
+<AccordionGroup>
+  <Accordion title="View Failed Jobs" icon="triangle-exclamation">
+    ```bash
+    # List all failed jobs
+    php artisan queue:failed
+    ```
+    
+    Output shows:
+    - Job ID
+    - Connection
+    - Queue
+    - Exception message
+    - Failed at timestamp
+  </Accordion>
+
+  <Accordion title="Retry Failed Jobs" icon="rotate-right">
+    ```bash
+    # Retry all failed jobs
+    php artisan queue:retry all
+    
+    # Retry specific job
+    php artisan queue:retry 5
+    
+    # Retry jobs from last hour
+    php artisan queue:retry --range=1-100
+    ```
+  </Accordion>
+
+  <Accordion title="Delete Failed Jobs" icon="trash">
+    ```bash
+    # Delete specific failed job
+    php artisan queue:forget 5
+    
+    # Clear all failed jobs
+    php artisan queue:flush
+    ```
+  </Accordion>
+
+  <Accordion title="Investigate Failures" icon="magnifying-glass">
+    Failed jobs table includes full exception details:
+    
+    ```sql
+    SELECT id, queue, exception 
+    FROM failed_jobs 
+    ORDER BY failed_at DESC 
+    LIMIT 1\G
+    ```
+    
+    Common failure reasons:
+    - SMTP connection timeout
+    - Invalid email addresses
+    - Missing dependencies
+    - Code errors
+  </Accordion>
+</AccordionGroup>
+
+## Performance Optimization
+
+### Scaling Workers
+
+Adjust based on job volume:
+
+```ini
+# Low traffic (< 100 jobs/hour)
+numprocs=1
+
+# Medium traffic (100-1000 jobs/hour)
+numprocs=2-3
+
+# High traffic (> 1000 jobs/hour)
+numprocs=5-10
+```
+
+<Warning>
+  Too many workers can overwhelm your database or mail server. Scale gradually.
+</Warning>
+
+### Worker Timeout Configuration
+
+```bash
+# Restart worker every hour (prevents memory leaks)
+--max-time=3600
+
+# Maximum seconds per job
+--timeout=60
+
+# Maximum job attempts
+--tries=3
+```
+
+### Redis Queue Optimization
+
+Optimize Redis for queue workloads:
+
+```ini
+# /etc/redis/redis.conf
+maxmemory 256mb
+maxmemory-policy allkeys-lru
+save ""
+appendonly no
+```
+
+Restart Redis:
+```bash
+sudo systemctl restart redis
+```
+
+## Deployment Considerations
+
+<Warning>
+  Always restart queue workers after deploying code changes.
+</Warning>
+
+### Graceful Worker Restart
+
+```bash
+# Send restart signal (workers finish current job)
+php artisan queue:restart
+
+# Then Supervisor automatically restarts them
+sudo supervisorctl restart nutrifit-worker:*
+```
+
+### Automated Restart in Deploy Script
+
+Add to your deployment script:
+
+```bash
+# After pulling code and running migrations
+php artisan queue:restart
+
+# If using Supervisor
+sudo supervisorctl restart nutrifit-worker:*
+```
+
+### Laravel Forge Auto-Restart
+
+Forge automatically restarts queue workers on deployment. No manual action needed.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Jobs Not Processing" icon="circle-exclamation">
+    **Check worker is running:**
+    ```bash
+    ps aux | grep queue:work
+    sudo supervisorctl status
+    ```
+    
+    **Check queue connection:**
+    ```bash
+    php artisan queue:monitor
+    ```
+    
+    **Test manually:**
+    ```bash
+    php artisan queue:work --once --verbose
+    ```
+  </Accordion>
+
+  <Accordion title="Workers Keep Dying" icon="skull">
+    **Check logs:**
+    ```bash
+    tail -f storage/logs/worker.log
+    sudo supervisorctl tail -f nutrifit-worker:nutrifit-worker_00
+    ```
+    
+    **Common causes:**
+    - Memory limit exceeded (increase `memory_limit` in php.ini)
+    - Database connection lost (use `--timeout` option)
+    - Code errors (check `storage/logs/laravel.log`)
+    
+    **Increase PHP memory:**
+    ```bash
+    # Add to supervisor config
+    environment=PHP_MEMORY_LIMIT=512M
+    ```
+  </Accordion>
+
+  <Accordion title="Emails Not Sending" icon="envelope-circle-check">
+    **Verify queue is processing:**
+    ```bash
+    php artisan queue:work --verbose
+    ```
+    
+    **Check failed jobs:**
+    ```bash
+    php artisan queue:failed
+    ```
+    
+    **Test email configuration:**
+    ```bash
+    php artisan tinker
+    Mail::raw('Test', fn($m) => $m->to('test@example.com')->subject('Test'));
+    ```
+    
+    **Common issues:**
+    - SMTP credentials incorrect
+    - Mail server blocking connections
+    - Rate limiting by mail provider
+  </Accordion>
+
+  <Accordion title="High Memory Usage" icon="memory">
+    **Limit worker lifetime:**
+    ```bash
+    --max-time=3600  # Restart after 1 hour
+    --max-jobs=1000  # Restart after 1000 jobs
+    ```
+    
+    **Monitor memory:**
+    ```bash
+    watch -n 1 'ps aux | grep queue:work'
+    ```
+    
+    **Reduce worker count** if total memory exceeds available RAM.
+  </Accordion>
+</AccordionGroup>
+
+## Testing Queue Jobs
+
+During development:
+
+```bash
+# Use sync driver (no queue, immediate execution)
+QUEUE_CONNECTION=sync
+
+# Or run worker in foreground with verbose output
+php artisan queue:work --verbose
+```
+
+Test specific notification:
+
+```bash
+php artisan tinker
+```
+
+```php
+$user = User::first();
+$appointment = Appointment::first();
+
+$user->notify(new AppointmentConfirmedForPatient($appointment));
+
+// Check jobs table
+DB::table('jobs')->count();
+```
+
+## Monitoring Tools
+
+For production monitoring:
+
+<CardGroup cols={2}>
+  <Card title="Laravel Horizon" icon="chart-simple">
+    Beautiful dashboard for Redis queues
+    
+    ```bash
+    composer require laravel/horizon
+    php artisan horizon:install
+    ```
+    
+    Access at `/horizon`
+  </Card>
+  
+  <Card title="Laravel Telescope" icon="telescope">
+    Debug queue jobs in development
+    
+    ```bash
+    composer require laravel/telescope --dev
+    php artisan telescope:install
+    ```
+  </Card>
+  
+  <Card title="Forge Monitoring" icon="forge">
+    Built-in queue monitoring in Laravel Forge dashboard
+  </Card>
+  
+  <Card title="Custom Scripts" icon="code">
+    Monitor queue health with custom scripts
+    
+    ```bash
+    watch -n 5 'php artisan queue:monitor'
+    ```
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Monitoring" icon="chart-line" href="/maintenance/commands">
+    Set up application monitoring
+  </Card>
+  
+  <Card title="Performance" icon="gauge-high" href="/deployment/checklist">
+    Optimize application performance
+  </Card>
+  
+  <Card title="Backups" icon="database" href="/maintenance/database-backups">
+    Configure automated backups
+  </Card>
+  
+  <Card title="Troubleshooting" icon="wrench" href="/installation/configuration">
+    Common issues and solutions
+  </Card>
+</CardGroup>

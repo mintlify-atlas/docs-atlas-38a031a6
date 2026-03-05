@@ -1,0 +1,369 @@
+---
+title: 'Pre-Deployment Checklist'
+description: 'Comprehensive checklist for preparing NutriFit for production deployment'
+---
+
+Before deploying NutriFit to production, ensure all items in this checklist are completed. This systematic approach helps prevent common deployment issues and ensures optimal performance.
+
+## Environment Configuration
+
+### Critical Settings
+
+<Steps>
+  <Step title="Set Production Environment">
+    Update your `.env` file:
+    ```bash
+    APP_ENV=production
+    APP_DEBUG=false
+    ```
+    
+    <Warning>
+      Never enable `APP_DEBUG=true` in production. It exposes sensitive application details and stack traces.
+    </Warning>
+  </Step>
+
+  <Step title="Generate Application Key">
+    Ensure your application key is set:
+    ```bash
+    php artisan key:generate
+    ```
+    
+    <Note>
+      This key is used for encrypting sessions, cookies, and other sensitive data.
+    </Note>
+  </Step>
+
+  <Step title="Set Application URL">
+    Configure your production domain:
+    ```bash
+    APP_URL=https://yourdomain.com
+    ```
+  </Step>
+</Steps>
+
+## Database Configuration
+
+<AccordionGroup>
+  <Accordion title="MySQL Configuration" icon="database">
+    Switch from SQLite to MySQL for production:
+    
+    ```bash
+    DB_CONNECTION=mysql
+    DB_HOST=127.0.0.1
+    DB_PORT=3306
+    DB_DATABASE=nutrifit
+    DB_USERNAME=nutrifit_user
+    DB_PASSWORD=your_secure_password
+    ```
+    
+    <Check>Use a strong, unique password for database access</Check>
+  </Accordion>
+
+  <Accordion title="Run Migrations" icon="arrow-progress">
+    Execute database migrations:
+    ```bash
+    php artisan migrate --force
+    ```
+    
+    The `--force` flag is required in production environments.
+  </Accordion>
+
+  <Accordion title="Seed Initial Data" icon="seedling">
+    Create the admin user and initial data:
+    ```bash
+    php artisan db:seed
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Mail Server Configuration
+
+<CardGroup cols={2}>
+  <Card title="SMTP Settings" icon="envelope">
+    Configure your production mail server:
+    ```bash
+    MAIL_MAILER=smtp
+    MAIL_HOST=smtp.yourdomain.com
+    MAIL_PORT=587
+    MAIL_USERNAME=noreply@yourdomain.com
+    MAIL_PASSWORD=your_mail_password
+    MAIL_ENCRYPTION=tls
+    MAIL_FROM_ADDRESS=noreply@yourdomain.com
+    MAIL_FROM_NAME="NutriFit"
+    ```
+  </Card>
+
+  <Card title="Test Email Delivery" icon="paper-plane">
+    Verify email notifications are working:
+    ```bash
+    php artisan tinker
+    # Then run:
+    Mail::raw('Test', function($msg) {
+        $msg->to('test@example.com')->subject('Test');
+    });
+    ```
+  </Card>
+</CardGroup>
+
+<Warning>
+  Replace Mailtrap credentials with a real SMTP server. Mailtrap only works in development.
+</Warning>
+
+## Performance Optimization
+
+### Caching Strategy
+
+<Steps>
+  <Step title="Compile Assets">
+    Build optimized frontend assets:
+    ```bash
+    npm run build
+    ```
+  </Step>
+
+  <Step title="Optimize Composer Autoloader">
+    Generate optimized autoload files:
+    ```bash
+    composer install --optimize-autoloader --no-dev
+    ```
+    
+    The `--no-dev` flag excludes development dependencies.
+  </Step>
+
+  <Step title="Cache Configuration">
+    Cache all configuration files:
+    ```bash
+    php artisan config:cache
+    ```
+  </Step>
+
+  <Step title="Cache Routes">
+    Cache route definitions:
+    ```bash
+    php artisan route:cache
+    ```
+    
+    <Note>
+      Don't use route caching if you use closure-based routes.
+    </Note>
+  </Step>
+
+  <Step title="Cache Views">
+    Pre-compile Blade templates:
+    ```bash
+    php artisan view:cache
+    ```
+  </Step>
+</Steps>
+
+### Database Caching
+
+Configure cache to use database for better performance:
+
+```bash
+CACHE_STORE=database
+SESSION_DRIVER=database
+```
+
+For even better performance, consider Redis:
+
+```bash
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+```
+
+## Security Hardening
+
+<AccordionGroup>
+  <Accordion title="SSL/HTTPS Configuration" icon="lock">
+    Ensure your application is served over HTTPS:
+    
+    1. Obtain an SSL certificate (Let's Encrypt recommended)
+    2. Configure your web server to redirect HTTP to HTTPS
+    3. Update `APP_URL` to use `https://`
+    
+    <Check>Verify SSL is working: https://www.ssllabs.com/ssltest/</Check>
+  </Accordion>
+
+  <Accordion title="Environment Variables Security" icon="shield">
+    Protect your `.env` file:
+    
+    ```bash
+    chmod 600 .env
+    ```
+    
+    Ensure `.env` is in `.gitignore` and never committed to version control.
+  </Accordion>
+
+  <Accordion title="Directory Permissions" icon="folder-lock">
+    Set correct permissions:
+    
+    ```bash
+    chmod -R 755 storage bootstrap/cache
+    chown -R www-data:www-data storage bootstrap/cache
+    ```
+  </Accordion>
+
+  <Accordion title="Security Headers" icon="shield-check">
+    Configure security headers in your web server:
+    
+    - `X-Frame-Options: SAMEORIGIN`
+    - `X-Content-Type-Options: nosniff`
+    - `X-XSS-Protection: 1; mode=block`
+    - `Strict-Transport-Security: max-age=31536000`
+  </Accordion>
+</AccordionGroup>
+
+## Queue Workers
+
+<Warning>
+  Queue workers are critical for NutriFit. Email notifications won't be sent without them.
+</Warning>
+
+Configure queue connection:
+
+```bash
+QUEUE_CONNECTION=database
+```
+
+For better performance, use Redis:
+
+```bash
+QUEUE_CONNECTION=redis
+```
+
+See [Queue Workers](/deployment/queue-workers) for complete setup instructions.
+
+## Scheduled Tasks
+
+NutriFit sends appointment reminders 24 hours in advance. Configure the Laravel scheduler:
+
+```bash
+crontab -e
+```
+
+Add this entry:
+
+```bash
+* * * * * cd /path/to/nutrifit && php artisan schedule:run >> /dev/null 2>&1
+```
+
+## Backup Strategy
+
+<Steps>
+  <Step title="Database Backups">
+    Set up automated daily database backups:
+    
+    ```bash
+    # Example backup script
+    mysqldump -u nutrifit_user -p nutrifit > backup-$(date +%F).sql
+    ```
+    
+    Store backups securely off-server.
+  </Step>
+
+  <Step title="File Backups">
+    Back up uploaded files and storage:
+    
+    ```bash
+    tar -czf storage-backup-$(date +%F).tar.gz storage/
+    ```
+  </Step>
+
+  <Step title="Environment Backup">
+    Keep a secure backup of your `.env` file in a password manager or secure vault.
+  </Step>
+</Steps>
+
+## Final Verification
+
+<Tabs>
+  <Tab title="Checklist">
+    Before going live, verify:
+    
+    - [ ] `APP_ENV=production` is set
+    - [ ] `APP_DEBUG=false` is set
+    - [ ] Database is MySQL (not SQLite)
+    - [ ] SMTP server is configured
+    - [ ] Assets are compiled (`npm run build`)
+    - [ ] Composer is optimized (`--no-dev`)
+    - [ ] All caches are generated
+    - [ ] Queue worker is running
+    - [ ] Cron job is configured
+    - [ ] SSL certificate is installed
+    - [ ] Backups are configured
+    - [ ] Admin account is created
+    - [ ] Test email notifications work
+    - [ ] Test appointment booking works
+    - [ ] Test PDF generation works
+  </Tab>
+
+  <Tab title="Testing">
+    Test critical functionality:
+    
+    1. **Registration & Login**
+       - Register a new patient account
+       - Verify email verification works
+       - Login successfully
+    
+    2. **Appointments**
+       - Create an appointment
+       - Verify confirmation email is sent
+       - Check appointment appears in dashboard
+    
+    3. **Admin Functions**
+       - Login as admin
+       - Create a nutritionist account
+       - Verify dashboard statistics
+    
+    4. **Performance**
+       - Check page load times
+       - Verify assets load from CDN (if configured)
+       - Test under expected load
+  </Tab>
+</Tabs>
+
+## Rollback Plan
+
+Before deployment, prepare a rollback strategy:
+
+1. Keep previous version files accessible
+2. Have database backup ready to restore
+3. Document rollback commands
+4. Test rollback procedure in staging
+
+```bash
+# Example rollback commands
+git checkout previous-stable-tag
+composer install --no-dev
+npm run build
+php artisan migrate:rollback
+php artisan cache:clear
+```
+
+<Note>
+  Consider using a staging environment to test deployment procedures before production.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Setup" icon="gear" href="/deployment/environment-setup">
+    Detailed production environment configuration
+  </Card>
+  
+  <Card title="Deployment Platforms" icon="server" href="/deployment/platforms">
+    Choose and configure your hosting platform
+  </Card>
+  
+  <Card title="Queue Workers" icon="list-check" href="/deployment/queue-workers">
+    Set up background job processing
+  </Card>
+  
+  <Card title="Monitoring" icon="chart-line" href="/maintenance/commands">
+    Monitor your production application
+  </Card>
+</CardGroup>

@@ -1,0 +1,277 @@
+---
+title: 'PersonalData'
+description: 'Extended personal information for NutriFit users'
+---
+
+## Overview
+
+The `PersonalData` model stores additional personal information for users in the NutriFit system. This data extends the base User model with demographics and contact information.
+
+**Namespace:** `App\Models\PersonalData`
+
+**Extends:** `Illuminate\Database\Eloquent\Model`
+
+**Table:** `personal_data`
+
+**Note:** PersonalData is automatically eager-loaded on the User model via `$with = ['personalData']`.
+
+## Fillable Attributes
+
+<ParamField path="user_id" type="integer" required>
+  Foreign key to the User model (one-to-one relationship)
+</ParamField>
+
+<ParamField path="cedula" type="string">
+  National identification number (e.g., "0401234567" for Ecuadorian CI)
+</ParamField>
+
+<ParamField path="phone" type="string">
+  Contact phone number
+</ParamField>
+
+<ParamField path="address" type="string">
+  Physical address
+</ParamField>
+
+<ParamField path="birth_date" type="date">
+  Date of birth (cast to date)
+</ParamField>
+
+<ParamField path="gender" type="string">
+  Gender identifier (e.g., "masculino", "femenino", "otro")
+</ParamField>
+
+<ParamField path="profile_photo" type="string">
+  Path to profile photo in storage (relative path, e.g., "profile-photos/abc123.jpg")
+</ParamField>
+
+## Casts
+
+The model automatically casts:
+- `birth_date` → `date`
+
+## Appended Attributes
+
+The following computed attributes are automatically appended to JSON/array serialization:
+- `age` - Calculated from `birth_date`
+
+## Relationships
+
+### BelongsTo
+
+<ResponseField name="user()" type="BelongsTo">
+  Returns the user this personal data belongs to (User model)
+  
+  ```php
+  $personalData->user->email; // Access the associated user
+  ```
+</ResponseField>
+
+## Accessor Methods
+
+### getAgeAttribute()
+
+```php
+public function getAgeAttribute(): ?int
+```
+
+Calculates the user's age in years based on their birth date.
+
+**Returns:** Age in years, or `null` if `birth_date` is not set.
+
+**Usage:**
+```php
+$user = User::find(1);
+echo $user->personalData->age; // 28 (automatically calculated)
+
+// Also available in JSON
+$user->toArray();
+// [
+//   'personal_data' => [
+//     'birth_date' => '1998-05-15',
+//     'age' => 28,  // Automatically appended
+//   ]
+// ]
+```
+
+**Implementation:**
+Uses Carbon's `age` property to calculate years between `birth_date` and today.
+
+## Usage Examples
+
+### Creating Personal Data
+
+```php
+use App\Models\User;
+use App\Models\PersonalData;
+
+// Create user first
+$user = User::create([
+    'name' => 'María González',
+    'email' => 'maria@example.com',
+    'password' => bcrypt('password'),
+    'role_id' => 3,
+    'user_state_id' => 1,
+]);
+
+// Add personal data
+$personalData = PersonalData::create([
+    'user_id' => $user->id,
+    'cedula' => '0401234567',
+    'phone' => '0987654321',
+    'address' => 'Av. Principal 123, Quito',
+    'birth_date' => '1995-08-15',
+    'gender' => 'femenino',
+]);
+```
+
+### Accessing Personal Data
+
+```php
+// PersonalData is automatically loaded
+$user = User::find(1);
+
+// Access personal data directly (no additional query)
+echo $user->personalData->phone;
+echo $user->personalData->age; // Calculated automatically
+echo $user->personalData->birth_date->format('d/m/Y'); // 15/08/1995
+```
+
+### Uploading Profile Photo
+
+```php
+use Illuminate\Support\Facades\Storage;
+
+// Handle file upload
+if ($request->hasFile('profile_photo')) {
+    // Delete old photo if exists
+    if ($user->personalData?->profile_photo) {
+        Storage::disk('public')->delete($user->personalData->profile_photo);
+    }
+    
+    // Store new photo
+    $path = $request->file('profile_photo')->store('profile-photos', 'public');
+    
+    // Update personal data
+    $user->personalData->update([
+        'profile_photo' => $path,
+    ]);
+}
+
+// Get profile photo URL using User helper method
+$photoUrl = $user->profilePhotoUrl(); // Uses this PersonalData field
+```
+
+### Updating Personal Data
+
+```php
+$user = User::find(1);
+
+// Update via relationship
+$user->personalData->update([
+    'phone' => '0991234567',
+    'address' => 'Nueva dirección 456, Guayaquil',
+]);
+
+// Or find and update directly
+PersonalData::where('user_id', $user->id)->update([
+    'cedula' => '0409876543',
+]);
+```
+
+### Querying by Personal Data
+
+```php
+// Find users by cedula
+$user = User::whereHas('personalData', function ($query) use ($cedula) {
+    $query->where('cedula', $cedula);
+})->first();
+
+// Find users within age range
+$users = User::whereHas('personalData', function ($query) {
+    $query->whereNotNull('birth_date')
+          ->whereRaw('YEAR(CURDATE()) - YEAR(birth_date) BETWEEN 25 AND 35');
+})->get();
+
+// Get users with profile photos
+$usersWithPhotos = User::whereHas('personalData', function ($query) {
+    $query->whereNotNull('profile_photo');
+})->get();
+```
+
+### Validating Personal Data
+
+```php
+// Validation rules example
+$rules = [
+    'cedula' => 'required|string|size:10|unique:personal_data,cedula,' . $user->id . ',user_id',
+    'phone' => 'required|string|min:10|max:13',
+    'address' => 'nullable|string|max:255',
+    'birth_date' => 'required|date|before:today|after:1900-01-01',
+    'gender' => 'required|in:masculino,femenino,otro',
+    'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+];
+
+$validated = $request->validate($rules);
+```
+
+### Calculating Age-Based Metrics
+
+```php
+$user = User::with('personalData')->find(1);
+$age = $user->personalData->age;
+
+// Age-based recommendations
+if ($age < 18) {
+    $caloricNeeds = 2000; // Adolescent
+} elseif ($age < 65) {
+    $caloricNeeds = 1800; // Adult
+} else {
+    $caloricNeeds = 1600; // Senior
+}
+
+// Check if user can register (age requirement)
+if ($age < 18) {
+    return back()->withErrors('Debe ser mayor de 18 años para registrarse.');
+}
+```
+
+### Displaying User Profile
+
+```php
+$user = User::find(1);
+$data = $user->personalData;
+
+// Build profile display
+$profile = [
+    'name' => $user->name,
+    'email' => $user->email,
+    'initials' => $user->initials(),
+    'photo_url' => $user->profilePhotoUrl(),
+    'cedula' => $data->cedula,
+    'phone' => $data->phone,
+    'address' => $data->address,
+    'age' => $data->age,
+    'gender' => $data->gender,
+    'birth_date' => $data->birth_date?->format('d/m/Y'),
+];
+```
+
+### Seeding Example
+
+```php
+// In a seeder or factory
+use App\Models\User;
+use App\Models\PersonalData;
+
+User::factory(50)->create()->each(function ($user) {
+    PersonalData::create([
+        'user_id' => $user->id,
+        'cedula' => fake()->numerify('04########'),
+        'phone' => fake()->numerify('09########'),
+        'address' => fake()->address(),
+        'birth_date' => fake()->dateTimeBetween('-65 years', '-18 years'),
+        'gender' => fake()->randomElement(['masculino', 'femenino', 'otro']),
+    ]);
+});
+```

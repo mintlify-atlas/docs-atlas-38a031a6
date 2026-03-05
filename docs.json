@@ -1,122 +1,142 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "NutriFit",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#94cb04",
+    "light": "#545454",
+    "dark": "#545454"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
+  "logo": {
+    "light": "/logo.png",
+    "dark": "/logo.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/Rubenpro19/NutriFit"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/Rubenpro19/NutriFit"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Overview",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "features",
+              "getting-started"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Installation",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "installation/requirements",
+              "installation/quick-setup",
+              "installation/manual-setup",
+              "installation/configuration"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Core Features",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "features/authentication",
+              "features/appointments",
+              "features/clinical-records",
+              "features/notifications",
+              "features/user-roles"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "User Guides",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/admin-dashboard",
+              "guides/nutritionist-workflow",
+              "guides/patient-portal",
+              "guides/scheduling"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/database-schema",
+              "architecture/tall-stack",
+              "architecture/notifications-system"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Models",
             "pages": [
-              "api-reference/introduction"
+              "api/models/user",
+              "api/models/appointment",
+              "api/models/attention",
+              "api/models/personal-data"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Controllers",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/controllers/admin-controller",
+              "api/controllers/nutritionist-controller",
+              "api/controllers/patient-controller",
+              "api/controllers/attention-controller"
+            ]
+          },
+          {
+            "group": "Livewire Components",
+            "pages": [
+              "api/livewire/overview",
+              "api/livewire/admin-components",
+              "api/livewire/nutritionist-components",
+              "api/livewire/patient-components"
+            ]
+          },
+          {
+            "group": "Notifications",
+            "pages": [
+              "api/notifications/overview",
+              "api/notifications/appointment-notifications",
+              "api/notifications/user-notifications"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Deployment",
+        "groups": [
+          {
+            "group": "Production",
+            "pages": [
+              "deployment/checklist",
+              "deployment/environment-setup",
+              "deployment/platforms",
+              "deployment/queue-workers"
+            ]
+          },
+          {
+            "group": "Maintenance",
+            "pages": [
+              "maintenance/commands",
+              "maintenance/scheduled-tasks",
+              "maintenance/database-backups"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

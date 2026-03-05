@@ -1,0 +1,420 @@
+---
+title: "User Notifications"
+description: "Email notifications for user account management and authentication in NutriFit"
+---
+
+## Overview
+
+User notifications handle account-related events including registration, authentication, and account status changes.
+
+## Notification Classes
+
+### WelcomeNotification
+
+**File**: `app/Notifications/WelcomeNotification.php`
+
+**Purpose**: Welcomes new users to NutriFit after successful registration.
+
+**Recipient**: Newly registered user
+
+**Trigger**: After user completes registration
+
+**Constructor Parameters**:
+```php
+public function __construct()
+// No parameters required
+```
+
+**Email Content**:
+- **Subject**: "🎉 ¡Bienvenido a NutriFit!"
+- **Greeting**: "¡Hola {user_name}!"
+- **Message**: Welcome message and account creation confirmation
+- **Features Highlighted**:
+  - ✅ Agendar citas con nutricionistas profesionales
+  - ✅ Mantener tu historial clínico organizado
+  - ✅ Recibir seguimiento continuo de tu progreso
+- **Call to Action**: "Explorar NutriFit" → `/paciente/dashboard`
+- **Additional Note**: Invitation to contact support if needed
+- **Salutation**: "¡Bienvenido al equipo! NutriFit"
+
+**Usage Example**:
+```php
+use App\Notifications\WelcomeNotification;
+
+// After user registration
+$user->notify(new WelcomeNotification());
+```
+
+---
+
+### VerifyEmailNotification
+
+**File**: `app/Notifications/VerifyEmailNotification.php`
+
+**Purpose**: Sends email verification link to confirm user's email address.
+
+**Recipient**: Newly registered user (before email verification)
+
+**Trigger**: After user registration or when requesting new verification link
+
+**Base Class**: Extends `Illuminate\Auth\Notifications\VerifyEmail`
+
+**Email Content**:
+- **Subject**: "✅ Verifica tu Correo Electrónico - NutriFit"
+- **Greeting**: "¡Hola {user_name}!"
+- **Message**: Verification request with instructions
+- **Call to Action**: "Verificar Correo Electrónico" → `{verification_url}`
+- **Expiration Notice**: Link expires in 60 minutes
+- **Security Note**: Safe to ignore if user didn't register
+- **Salutation**: "¡Te esperamos! NutriFit"
+
+**Verification URL**:
+```php
+$verificationUrl = $this->verificationUrl($notifiable);
+```
+
+Generated using Laravel's signed URL mechanism with timestamp and hash validation.
+
+**Usage Example**:
+```php
+use App\Notifications\VerifyEmailNotification;
+
+// Send verification email
+$user->notify(new VerifyEmailNotification());
+
+// Or use Laravel's built-in method
+$user->sendEmailVerificationNotification();
+```
+
+---
+
+### ResetPasswordNotification
+
+**File**: `app/Notifications/ResetPasswordNotification.php`
+
+**Purpose**: Sends password reset link when user requests to reset their password.
+
+**Recipient**: User who requested password reset
+
+**Trigger**: When user submits forgot password form
+
+**Constructor Parameters**:
+```php
+public function __construct(
+    string $token // Password reset token
+)
+```
+
+**Email Content**:
+- **Subject**: "Restablecer Contraseña - NutriFit"
+- **Greeting**: "¡Hola!"
+- **Message**: Explanation that password reset was requested
+- **Call to Action**: "Restablecer Contraseña" → `{reset_url}`
+- **Expiration Notice**: Link expires in 60 minutes
+- **Security Note**: No action needed if request wasn't made by user
+- **Salutation**: "Saludos, NutriFit"
+
+**Reset URL Generation**:
+```php
+$url = url(route('password.reset', [
+    'token' => $token,
+    'email' => $notifiable->getEmailForPasswordReset(),
+], false));
+```
+
+**Usage Example**:
+```php
+use App\Notifications\ResetPasswordNotification;
+use Illuminate\Support\Facades\Password;
+
+// Laravel handles this automatically, but you can customize:
+$token = Password::createToken($user);
+$user->notify(new ResetPasswordNotification($token));
+```
+
+---
+
+### PasswordChangedNotification
+
+**File**: `app/Notifications/PasswordChangedNotification.php`
+
+**Purpose**: Confirms successful password change and alerts user to potential unauthorized access.
+
+**Recipient**: User whose password was changed
+
+**Trigger**: After successful password update
+
+**Constructor Parameters**:
+```php
+public function __construct()
+// No parameters required
+```
+
+**Email Content**:
+- **Subject**: "🔐 Contraseña Actualizada - NutriFit"
+- **Greeting**: "¡Hola {user_name}!"
+- **Message**: Confirmation of password update
+- **Security Alert**: Instructions if change was unauthorized
+- **Timestamp**: Date and time of password change (formatted as `d/m/Y H:i:s`)
+- **Call to Action**: "Ir a Mi Cuenta" → `/paciente/perfil`
+- **Security Reminder**: Never share password
+- **Salutation**: "Saludos, NutriFit"
+
+**Database Notification Data**:
+```php
+[
+    'changed_at' => now()->toDateTimeString(),
+]
+```
+
+**Usage Example**:
+```php
+use App\Notifications\PasswordChangedNotification;
+
+// After password update
+$user->password = Hash::make($newPassword);
+$user->save();
+
+$user->notify(new PasswordChangedNotification());
+```
+
+---
+
+### UserAccountEnabledNotification
+
+**File**: `app/Notifications/UserAccountEnabledNotification.php`
+
+**Purpose**: Notifies user when their account is enabled/reactivated by an administrator.
+
+**Recipient**: User whose account was enabled
+
+**Trigger**: When administrator enables a previously disabled account
+
+**Constructor Parameters**:
+```php
+public function __construct()
+// No parameters required
+```
+
+**Email Content**:
+- **Subject**: "✅ Tu cuenta ha sido habilitada - NutriFit"
+- **Greeting**: "¡Hola {user_name}!"
+- **Message**: Account has been enabled/reactivated
+- **Permissions Restored**:
+  - ✅ Iniciar sesión en la plataforma
+  - ✅ Acceder a todas las funcionalidades
+  - ✅ Continuar usando tu cuenta con normalidad
+- **Call to Action**: "Ir a mi Dashboard" → Role-based dashboard URL
+- **Salutation**: "Bienvenido nuevamente, NutriFit"
+
+**Role-Based Dashboard URLs**:
+```php
+'administrador' => '/admin/dashboard'
+'nutricionista' => '/nutricionista/dashboard'
+'paciente' => '/paciente/dashboard'
+default => '/dashboard'
+```
+
+**Usage Example**:
+```php
+use App\Notifications\UserAccountEnabledNotification;
+
+// When admin enables account
+$user->is_active = true;
+$user->save();
+
+$user->notify(new UserAccountEnabledNotification());
+```
+
+---
+
+### UserAccountDisabledNotification
+
+**File**: `app/Notifications/UserAccountDisabledNotification.php`
+
+**Purpose**: Notifies user when their account is disabled by an administrator.
+
+**Recipient**: User whose account was disabled
+
+**Trigger**: When administrator disables a user account
+
+**Constructor Parameters**:
+```php
+public function __construct()
+// No parameters required
+```
+
+**Email Content**:
+- **Subject**: "⚠️ Tu cuenta ha sido deshabilitada - NutriFit"
+- **Greeting**: "Hola {user_name},"
+- **Message**: Account has been disabled by administrator
+- **Consequences Explained**:
+  - • No podrás iniciar sesión en la plataforma
+  - • No podrás agendar nuevas citas
+  - • Tus citas pendientes podrían verse afectadas
+- **Call to Action**: "Contactar Soporte" → `/contacto`
+- **Additional Note**: Instructions to contact administrator if it's an error
+- **Salutation**: "Atentamente, NutriFit"
+
+**Usage Example**:
+```php
+use App\Notifications\UserAccountDisabledNotification;
+
+// When admin disables account
+$user->is_active = false;
+$user->save();
+
+$user->notify(new UserAccountDisabledNotification());
+```
+
+## Additional User Notifications
+
+### PersonalDataCreatedNotification
+
+**File**: `app/Notifications/PersonalDataCreatedNotification.php`
+
+Notifies users when their personal data profile is created. (Implementation details not shown in source code review)
+
+### ContactFormNotification
+
+**File**: `app/Notifications/ContactFormNotification.php`
+
+Notifies administrators when a user submits the contact form. (Implementation details not shown in source code review)
+
+## Authentication Flow
+
+### Registration Flow
+
+1. User submits registration form
+2. **WelcomeNotification** sent immediately
+3. **VerifyEmailNotification** sent immediately
+4. User clicks verification link
+5. Account becomes fully active
+
+### Password Reset Flow
+
+1. User requests password reset
+2. **ResetPasswordNotification** sent with token
+3. User clicks reset link (valid for 60 minutes)
+4. User submits new password
+5. **PasswordChangedNotification** sent as confirmation
+
+### Account Status Flow
+
+1. Administrator changes account status
+2. **UserAccountEnabledNotification** or **UserAccountDisabledNotification** sent
+3. User receives email explaining the change
+4. User can contact support if needed
+
+## Security Considerations
+
+### Email Verification
+
+- Verification links are signed URLs with timestamp and hash
+- Links expire after 60 minutes
+- Laravel validates signature before allowing verification
+- Prevents tampering and replay attacks
+
+### Password Reset
+
+- Reset tokens are stored hashed in database
+- Tokens expire after 60 minutes
+- Tokens are single-use only
+- Old tokens invalidated when new one requested
+
+### Password Change Notification
+
+- Always sent after password change
+- Helps detect unauthorized access
+- Includes timestamp for audit trail
+- Instructs user to contact admin if unauthorized
+
+### Account Status Changes
+
+- Clear communication about access restrictions
+- Provides contact information for support
+- Documents reason for change where applicable
+
+## Best Practices
+
+1. **Always send password change notifications** for security
+2. **Make verification links time-limited** to prevent abuse
+3. **Use signed URLs** for sensitive actions
+4. **Provide clear next steps** in every notification
+5. **Include support contact information** when access is restricted
+6. **Use role-based URLs** for better user experience
+7. **Implement rate limiting** on password reset requests
+8. **Log all account status changes** for audit trail
+9. **Test email delivery** in staging before production
+10. **Monitor failed notification deliveries** for email issues
+
+## Testing
+
+### Test Email Verification
+
+```php
+use App\Notifications\VerifyEmailNotification;
+
+public function test_email_verification_notification()
+{
+    Notification::fake();
+    
+    $user = User::factory()->unverified()->create();
+    $user->sendEmailVerificationNotification();
+    
+    Notification::assertSentTo($user, VerifyEmailNotification::class);
+}
+```
+
+### Test Password Reset
+
+```php
+use App\Notifications\ResetPasswordNotification;
+
+public function test_password_reset_notification()
+{
+    Notification::fake();
+    
+    $user = User::factory()->create();
+    Password::sendResetLink(['email' => $user->email]);
+    
+    Notification::assertSentTo(
+        $user,
+        ResetPasswordNotification::class,
+        function ($notification) {
+            return $notification->token !== null;
+        }
+    );
+}
+```
+
+### Test Account Status Notifications
+
+```php
+use App\Notifications\UserAccountDisabledNotification;
+use App\Notifications\UserAccountEnabledNotification;
+
+public function test_account_disabled_notification()
+{
+    Notification::fake();
+    
+    $user = User::factory()->create(['is_active' => true]);
+    $user->is_active = false;
+    $user->save();
+    $user->notify(new UserAccountDisabledNotification());
+    
+    Notification::assertSentTo($user, UserAccountDisabledNotification::class);
+}
+
+public function test_account_enabled_notification()
+{
+    Notification::fake();
+    
+    $user = User::factory()->create(['is_active' => false]);
+    $user->is_active = true;
+    $user->save();
+    $user->notify(new UserAccountEnabledNotification());
+    
+    Notification::assertSentTo($user, UserAccountEnabledNotification::class);
+}
+```

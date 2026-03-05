@@ -1,0 +1,263 @@
+---
+title: 'Artisan Commands'
+description: 'Custom and standard Laravel Artisan commands available in NutriFit'
+icon: 'terminal'
+---
+
+## Overview
+
+NutriFit includes custom Artisan commands for automated tasks alongside standard Laravel commands for application management.
+
+## Custom Commands
+
+### Send Appointment Reminders
+
+Sends email reminders to patients and nutritionists for appointments scheduled for the next day.
+
+```bash
+php artisan appointments:send-reminders
+```
+
+**Purpose**: Automatically notify both patients and nutritionists 24 hours before scheduled appointments.
+
+**Behavior**:
+- Queries appointments scheduled for tomorrow
+- Filters appointments with status `confirmada` (confirmed) or `pendiente` (pending)
+- Sends email notifications to both the patient and assigned nutritionist
+- Displays confirmation messages for each reminder sent
+
+**Output Example**:
+```
+Buscando citas para mañana...
+Se encontraron 3 citas para mañana.
+✓ Recordatorio enviado a paciente: Juan Pérez
+✓ Recordatorio enviado a nutricionista: Dra. María López
+¡Recordatorios enviados exitosamente!
+```
+
+**Note**: This command is automatically scheduled to run daily at 9:00 AM (see [Scheduled Tasks](/maintenance/scheduled-tasks)).
+
+---
+
+## Standard Laravel Commands
+
+### Application Management
+
+#### Clear Application Cache
+```bash
+php artisan optimize:clear
+```
+Clears all cached config, routes, views, and compiled files. Useful after configuration changes.
+
+#### Generate Application Key
+```bash
+php artisan key:generate
+```
+Generates a new application encryption key. Required during initial setup.
+
+#### Run Database Migrations
+```bash
+php artisan migrate
+```
+Execute pending database migrations.
+
+```bash
+php artisan migrate:fresh
+```
+⚠️ **Danger**: Drops all tables and re-runs migrations. Only use in development.
+
+```bash
+php artisan migrate:fresh --seed
+```
+Drops tables, re-runs migrations, and seeds the database with initial data.
+
+#### Seed Database
+```bash
+php artisan db:seed
+```
+Runs database seeders to populate initial data, including the admin user.
+
+---
+
+### Cache Management
+
+#### Cache Routes (Production)
+```bash
+php artisan route:cache
+```
+Caches application routes for faster routing. Clear with `route:clear`.
+
+#### Cache Configuration (Production)
+```bash
+php artisan config:cache
+```
+Caches all configuration files into a single file. Clear with `config:clear`.
+
+#### Cache Views (Production)
+```bash
+php artisan view:cache
+```
+Compiles all Blade templates. Clear with `view:clear`.
+
+#### Clear All Caches
+```bash
+php artisan optimize:clear
+```
+Clears route, config, view, and compiled caches in one command.
+
+---
+
+### Queue Management
+
+#### Run Queue Worker
+```bash
+php artisan queue:work
+```
+Processes jobs from the queue (required for email notifications).
+
+**Options**:
+- `--daemon`: Run worker in daemon mode
+- `--tries=3`: Maximum number of attempts per job
+- `--timeout=60`: Maximum seconds per job
+
+```bash
+php artisan queue:work --tries=3 --timeout=60
+```
+
+#### Restart Queue Workers
+```bash
+php artisan queue:restart
+```
+Gracefully restart all running queue workers. Use after code deployments.
+
+#### View Failed Jobs
+```bash
+php artisan queue:failed
+```
+Lists all jobs that failed processing.
+
+#### Retry Failed Jobs
+```bash
+php artisan queue:retry all
+```
+Retry all failed jobs, or specify a job ID.
+
+---
+
+### Development Commands
+
+#### Start Development Server
+```bash
+php artisan serve
+```
+Starts Laravel development server at `http://localhost:8000`.
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8080
+```
+Serve on custom host and port.
+
+#### Interactive Shell (Tinker)
+```bash
+php artisan tinker
+```
+Interactive REPL for testing code and querying the database.
+
+#### Run Scheduler (Testing)
+```bash
+php artisan schedule:run
+```
+Manually trigger the task scheduler. Useful for testing scheduled commands.
+
+#### Inspire Command
+```bash
+php artisan inspire
+```
+Displays an inspiring quote. Example custom command included with Laravel.
+
+---
+
+## Production Optimization
+
+Before deploying to production, run these commands:
+
+```bash
+# Install production dependencies only
+composer install --optimize-autoloader --no-dev
+
+# Cache all configuration
+php artisan config:cache
+
+# Cache routes
+php artisan route:cache
+
+# Cache views
+php artisan view:cache
+
+# Compile assets
+npm run build
+```
+
+---
+
+## Custom Command Development
+
+To create a new custom command:
+
+```bash
+php artisan make:command YourCommandName
+```
+
+This generates a command class in `app/Console/Commands/`.
+
+**Example Structure** (from `SendAppointmentReminders.php`):
+```php
+protected $signature = 'appointments:send-reminders';
+protected $description = 'Envía recordatorios de citas que serán mañana';
+
+public function handle()
+{
+    // Command logic here
+    return 0; // Success
+}
+```
+
+Register the command in `routes/console.php` or add to the scheduler.
+
+---
+
+## Troubleshooting
+
+### Permission Errors
+If you encounter permission errors:
+```bash
+sudo chown -R www-data:www-data storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache
+```
+
+### Queue Not Processing
+Ensure `QUEUE_CONNECTION=database` is set in `.env` and migrations have run:
+```bash
+php artisan queue:table
+php artisan migrate
+```
+
+### Cache Issues
+If changes aren't reflecting:
+```bash
+php artisan optimize:clear
+composer dump-autoload
+```
+
+---
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Scheduled Tasks" icon="clock" href="/maintenance/scheduled-tasks">
+    Configure cron jobs and task scheduling
+  </Card>
+  <Card title="Database Backups" icon="database" href="/maintenance/database-backups">
+    Backup and restoration procedures
+  </Card>
+</CardGroup>

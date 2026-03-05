@@ -1,0 +1,249 @@
+---
+title: 'Appointment'
+description: 'Appointment scheduling model for NutriFit consultations'
+---
+
+## Overview
+
+The `Appointment` model manages scheduled consultations between nutritionists and patients in the NutriFit system.
+
+**Namespace:** `App\Models\Appointment`
+
+**Extends:** `Illuminate\Database\Eloquent\Model`
+
+**Table:** `appointments`
+
+## Fillable Attributes
+
+<ParamField path="appointment_state_id" type="integer" required>
+  Foreign key to the AppointmentState model (pendiente, completada, cancelada, vencida)
+</ParamField>
+
+<ParamField path="paciente_id" type="integer" required>
+  Foreign key to the User model representing the patient
+</ParamField>
+
+<ParamField path="nutricionista_id" type="integer" required>
+  Foreign key to the User model representing the nutritionist
+</ParamField>
+
+<ParamField path="start_time" type="datetime" required>
+  When the appointment starts (cast to datetime)
+</ParamField>
+
+<ParamField path="end_time" type="datetime" required>
+  When the appointment ends (cast to datetime)
+</ParamField>
+
+<ParamField path="reason" type="string">
+  The reason for the appointment (e.g., "Primera consulta", "Seguimiento")
+</ParamField>
+
+<ParamField path="appointment_type" type="string">
+  Type of appointment (e.g., "presencial", "virtual")
+</ParamField>
+
+<ParamField path="price" type="decimal">
+  Cost of the appointment (cast to decimal with 2 decimal places)
+</ParamField>
+
+<ParamField path="notes" type="text">
+  Additional notes or special instructions for the appointment
+</ParamField>
+
+## Casts
+
+The model automatically casts these attributes:
+- `start_time` → `datetime`
+- `end_time` → `datetime`
+- `price` → `decimal:2`
+
+## Relationships
+
+### BelongsTo
+
+<ResponseField name="appointmentState()" type="BelongsTo">
+  Returns the appointment's current state (AppointmentState model)
+  
+  ```php
+  $appointment->appointmentState; // pendiente, completada, etc.
+  ```
+</ResponseField>
+
+<ResponseField name="paciente()" type="BelongsTo">
+  Returns the patient user (User model)
+  
+  ```php
+  $appointment->paciente->name; // Patient's full name
+  ```
+</ResponseField>
+
+<ResponseField name="nutricionista()" type="BelongsTo">
+  Returns the nutritionist user (User model)
+  
+  ```php
+  $appointment->nutricionista->name; // Nutritionist's full name
+  ```
+</ResponseField>
+
+### HasOne
+
+<ResponseField name="attention()" type="HasOne">
+  Returns the clinical attention record associated with this appointment (Attention model)
+  
+  ```php
+  // Check if appointment has been attended
+  if ($appointment->attention) {
+      $diagnosis = $appointment->attention->diagnosis;
+  }
+  ```
+</ResponseField>
+
+## Static Methods
+
+### markExpiredAppointments()
+
+```php
+public static function markExpiredAppointments(): int
+```
+
+Automatically marks appointments as expired if their `end_time` has passed and they are still in 'pendiente' state.
+
+**Returns:** The number of appointments that were marked as expired.
+
+**Usage:**
+```php
+// Typically run via scheduled task
+$expiredCount = Appointment::markExpiredAppointments();
+Log::info("Marked {$expiredCount} appointments as expired");
+```
+
+**Implementation:**
+- Finds the 'vencida' state from AppointmentState
+- Updates all 'pendiente' appointments where `end_time < now()`
+- Returns count of updated records
+
+## Instance Methods
+
+### isExpired()
+
+```php
+public function isExpired(): bool
+```
+
+Checks if this specific appointment is expired (end time has passed and still marked as 'pendiente').
+
+**Returns:** `true` if the appointment is expired, `false` otherwise.
+
+**Usage:**
+```php
+if ($appointment->isExpired()) {
+    // Show "This appointment has expired" message
+    // Prevent editing or attending
+}
+```
+
+## Usage Examples
+
+### Creating an Appointment
+
+```php
+use App\Models\Appointment;
+use Carbon\Carbon;
+
+$appointment = Appointment::create([
+    'appointment_state_id' => 1, // pendiente
+    'paciente_id' => $patient->id,
+    'nutricionista_id' => $nutritionist->id,
+    'start_time' => Carbon::parse('2026-03-10 10:00:00'),
+    'end_time' => Carbon::parse('2026-03-10 11:00:00'),
+    'reason' => 'Primera consulta nutricional',
+    'appointment_type' => 'presencial',
+    'price' => 50.00,
+    'notes' => 'Paciente tiene alergia a frutos secos',
+]);
+```
+
+### Querying Appointments
+
+```php
+// Get upcoming appointments for a nutritionist
+$upcomingAppointments = Appointment::where('nutricionista_id', $user->id)
+    ->whereHas('appointmentState', fn($q) => $q->where('name', 'pendiente'))
+    ->where('start_time', '>', now())
+    ->orderBy('start_time')
+    ->get();
+
+// Get completed appointments for a patient
+$completedAppointments = Appointment::where('paciente_id', $user->id)
+    ->whereHas('appointmentState', fn($q) => $q->where('name', 'completada'))
+    ->with(['nutricionista.personalData', 'attention'])
+    ->orderBy('start_time', 'desc')
+    ->get();
+```
+
+### Checking Appointment Status
+
+```php
+$appointment = Appointment::with('appointmentState')->find(1);
+
+if ($appointment->isExpired()) {
+    // Mark as expired if not already
+    $vencidaState = AppointmentState::where('name', 'vencida')->first();
+    $appointment->update(['appointment_state_id' => $vencidaState->id]);
+}
+
+// Check if appointment has been attended
+if ($appointment->attention) {
+    echo "This appointment was completed with diagnosis: ";
+    echo $appointment->attention->diagnosis;
+}
+```
+
+### Scheduled Task Example
+
+```php
+// In app/Console/Kernel.php
+protected function schedule(Schedule $schedule)
+{
+    // Run every hour to mark expired appointments
+    $schedule->call(function () {
+        Appointment::markExpiredAppointments();
+    })->hourly();
+}
+```
+
+### Calculating Duration
+
+```php
+$appointment = Appointment::find(1);
+
+$durationInMinutes = $appointment->start_time->diffInMinutes($appointment->end_time);
+echo "Duration: {$durationInMinutes} minutes";
+
+// Format for display
+echo $appointment->start_time->format('d/m/Y H:i'); // 10/03/2026 10:00
+```
+
+### Validation Before Booking
+
+```php
+// Check for conflicts
+$hasConflict = Appointment::where('nutricionista_id', $nutricionista->id)
+    ->whereHas('appointmentState', fn($q) => 
+        $q->whereIn('name', ['pendiente', 'completada'])
+    )
+    ->where(function ($query) use ($startTime, $endTime) {
+        $query->whereBetween('start_time', [$startTime, $endTime])
+              ->orWhereBetween('end_time', [$startTime, $endTime])
+              ->orWhere(function ($q) use ($startTime, $endTime) {
+                  $q->where('start_time', '<=', $startTime)
+                    ->where('end_time', '>=', $endTime);
+              });
+    })
+    ->exists();
+
+if ($hasConflict) {
+    return back()->withErrors('El nutricionista ya tiene una cita en ese horario');
+}
+```

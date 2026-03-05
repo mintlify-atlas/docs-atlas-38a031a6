@@ -1,0 +1,247 @@
+---
+title: 'Admin Livewire Components'
+description: 'Administrator components for system settings and user management'
+---
+
+## Overview
+
+Admin components provide interfaces for system administrators to manage application settings and users. These components are restricted to users with the `admin` role.
+
+## SystemSettings
+
+**Location**: `app/Livewire/Admin/SystemSettings.php:8`
+
+**View**: `resources/views/livewire/admin/system-settings.blade.php`
+
+### Purpose
+
+Manages global system configuration including contact information and location data for the NutriFit application.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `telefono` | `string` | `''` | Contact phone number |
+| `email_contacto` | `string` | `''` | Contact email address |
+| `direccion` | `string` | `''` | Physical address |
+| `latitud` | `?float` | `null` | Geographic latitude |
+| `longitud` | `?float` | `null` | Geographic longitude |
+
+### Validation Rules
+
+```php
+'telefono' => 'nullable|string|max:20'
+'email_contacto' => 'nullable|email|max:255'
+'direccion' => 'nullable|string|max:255'
+'latitud' => 'nullable|numeric|between:-90,90'
+'longitud' => 'nullable|numeric|between:-180,180'
+```
+
+### Methods
+
+#### `mount(): void`
+
+**Location**: `app/Livewire/Admin/SystemSettings.php:35`
+
+Initializes the component with existing system settings from the database.
+
+```php
+public function mount(): void
+{
+    $settings = SystemSetting::first();
+    
+    if ($settings) {
+        $this->telefono = $settings->telefono ?? '';
+        $this->email_contacto = $settings->email_contacto ?? '';
+        $this->direccion = $settings->direccion ?? '';
+        $this->latitud = $settings->latitud;
+        $this->longitud = $settings->longitud;
+    }
+}
+```
+
+#### `save(): void`
+
+**Location**: `app/Livewire/Admin/SystemSettings.php:48`
+
+Validates and persists system settings to the database.
+
+**Process**:
+1. Validates all input fields
+2. Updates settings using `SystemSetting::updateSettings()`
+3. Displays success message
+
+**Flash Messages**:
+- `success`: "Configuración actualizada correctamente."
+
+### Usage Example
+
+```blade
+<livewire:admin.system-settings />
+```
+
+---
+
+## UsersTable
+
+**Location**: `app/Livewire/Admin/UsersTable.php:11`
+
+**View**: `resources/views/livewire/admin/users-table.blade.php`
+
+### Purpose
+
+Provides a paginated, filterable table for managing users in the system with search, role filtering, and state filtering capabilities.
+
+### Traits
+
+- `WithPagination` - Enables pagination support
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `search` | `string` | `''` | Search term for name/email |
+| `role_id` | `string` | `''` | Filter by user role |
+| `user_state_id` | `string` | `''` | Filter by user state |
+| `userToToggle` | `?int` | `null` | User ID for deactivation modal |
+| `userToActivate` | `?int` | `null` | User ID for activation modal |
+
+### Query String Parameters
+
+**Location**: `app/Livewire/Admin/UsersTable.php:21`
+
+The component persists filter state in the URL:
+
+```php
+protected $queryString = [
+    'search' => ['except' => ''],
+    'role_id' => ['except' => ''],
+    'user_state_id' => ['except' => ''],
+    'page' => ['except' => 1],
+];
+```
+
+### Event Listeners
+
+```php
+protected $listeners = ['userUpdated' => '$refresh'];
+```
+
+Refreshes the component when a user is updated.
+
+### Methods
+
+#### `openDeactivateModal(int $userId): void`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:30`
+
+Opens the deactivation confirmation modal for a specific user.
+
+```php
+public function openDeactivateModal($userId)
+{
+    $this->userToToggle = $userId;
+    $this->userToActivate = null;
+}
+```
+
+#### `openActivateModal(int $userId): void`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:36`
+
+Opens the activation confirmation modal for a specific user.
+
+#### `closeModal(): void`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:42`
+
+Closes any open modal dialogs.
+
+#### `updatingSearch(): void`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:48`
+
+Resets pagination when search term changes.
+
+#### `updatedRoleId(): void`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:53`
+
+Resets pagination when role filter changes.
+
+#### `updatedUserStateId(): void`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:58`
+
+Resets pagination when state filter changes.
+
+#### `clearFilters(): void`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:63`
+
+Resets all filters and pagination to their default state.
+
+```php
+public function clearFilters()
+{
+    $this->reset(['search', 'role_id', 'user_state_id']);
+    $this->resetPage();
+}
+```
+
+#### `render()`
+
+**Location**: `app/Livewire/Admin/UsersTable.php:69`
+
+Builds and executes the query to fetch filtered, paginated users.
+
+**Query Logic**:
+1. Excludes the authenticated user
+2. Eager loads `role` and `userState` relationships
+3. Filters by role if specified
+4. Filters by user state if specified
+5. Searches name and email if search term provided
+6. Orders by creation date (latest first)
+7. Paginates with 15 users per page
+
+**Returns**:
+- `users` - Paginated collection of users
+- `roles` - All available roles
+- `states` - All available user states
+
+### Usage Example
+
+```blade
+<livewire:admin.users-table />
+```
+
+### Search Implementation
+
+**Location**: `app/Livewire/Admin/UsersTable.php:82`
+
+Searches across both name and email fields:
+
+```php
+if (!empty($this->search)) {
+    $search = $this->search;
+    $query->where(function ($q) use ($search) {
+        $q->where('name', 'like', "%{$search}%")
+          ->orWhere('email', 'like', "%{$search}%");
+    });
+}
+```
+
+## Security Considerations
+
+- Both components are protected by middleware ensuring only admins can access them
+- User table excludes the currently authenticated user from management
+- All inputs are validated server-side
+- Email validation ensures proper format
+- Coordinate validation ensures valid geographic ranges
+
+## Related Models
+
+- `App\Models\SystemSetting` - Stores system configuration
+- `App\Models\User` - User accounts
+- `App\Models\Role` - User roles
+- `App\Models\UserState` - User account states

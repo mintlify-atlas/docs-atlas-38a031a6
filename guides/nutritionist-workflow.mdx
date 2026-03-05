@@ -1,0 +1,362 @@
+---
+title: Nutritionist Workflow Guide
+description: Complete guide for nutritionists to manage schedules, patients, and appointments in NutriFit
+---
+
+This guide walks you through the complete nutritionist workflow, from setting up your schedule to managing patients and conducting consultations.
+
+## Dashboard Overview
+
+Your dashboard shows:
+
+- **Appointments Today**: Number of pending appointments for today
+- **Appointments This Week**: Week's scheduled consultations
+- **Next Appointment**: Your upcoming consultation with patient details
+- **Today's Schedule**: Complete agenda with appointment times
+- **Upcoming Schedule**: Next 4 weeks of appointments organized by week
+
+<Note>
+Expired appointments (past their end time without completion) are automatically marked as "expired" and removed from your pending list.
+</Note>
+
+## Setting Up Your Schedule
+
+### Initial Schedule Configuration
+
+Before accepting appointments, configure your availability:
+
+1. Navigate to **Schedules** from your dashboard
+2. You'll see a weekly grid with time slots from 8:00 AM to 8:00 PM
+3. Click on time slots to mark your availability
+4. Select multiple consecutive slots to create availability blocks
+5. Click **Save Schedule** when finished
+
+### Schedule Details
+
+- Each appointment slot is **45 minutes** (standard consultation duration)
+- You can set availability for any day of the week
+- Multiple time blocks can be created for the same day (e.g., morning and afternoon sessions)
+- Time slots are displayed in 45-minute intervals
+
+### Editing Your Schedule
+
+<Warning>
+When you save a new schedule, all previous schedule settings are deleted and replaced with the new configuration.
+</Warning>
+
+To modify your schedule:
+
+1. Go to **Schedules**
+2. Select new availability slots
+3. Previously selected slots are shown for reference
+4. Click **Save Schedule**
+5. Confirm the changes
+
+### Schedule Considerations
+
+- Existing pending appointments are not affected by schedule changes
+- Only future appointment slots are impacted
+- Patients cannot book slots that conflict with existing appointments
+- Your schedule is automatically shown to patients in their timezone
+
+## Managing Patients
+
+### Patient List
+
+Access your patient roster:
+
+1. Click **Patients** in the navigation
+2. View all patients who have had appointments with you
+3. Search by name or email
+4. Filter by appointment status
+
+### Patient Details
+
+Click any patient to view:
+
+- **Personal Information**: Name, email, age, gender
+- **Contact Details**: Phone and emergency contact
+- **Appointment History**: All past and upcoming appointments
+- **Statistics**:
+  - Total appointments
+  - Completed sessions
+  - Cancelled appointments
+  - Pending appointments
+- **Next Appointment**: Upcoming consultation details
+- **Last Attention**: Most recent clinical record
+
+### Viewing Patient Data
+
+Access comprehensive patient information:
+
+1. Open patient profile
+2. Click **View Patient Data**
+3. Review:
+   - Personal demographics
+   - Medical history
+   - Previous measurements
+   - Progress photos (if available)
+
+### Patient History
+
+Track patient progress over time:
+
+1. Open patient profile
+2. Click **View History**
+3. See interactive charts showing:
+   - Weight progression
+   - BMI changes
+   - Body fat percentage
+   - Circumference measurements (waist, hip, arms, legs)
+   - Metabolic rates (TMB, TDEE)
+   - Body ratios (WHR, WHT)
+   - Target calories over time
+
+<Tip>
+Use the history charts during consultations to show patients their progress visually.
+</Tip>
+
+## Appointment Management
+
+### Viewing Your Appointments
+
+Access all appointments:
+
+1. Click **Appointments** in navigation
+2. View appointments with filters:
+   - **All**: Every appointment regardless of status
+   - **Pending**: Upcoming scheduled appointments
+   - **Completed**: Finished consultations with records
+   - **Cancelled**: Cancelled by you or patient
+   - **Expired**: Past appointments not completed
+3. Search by patient name
+4. Filter by date range
+
+### Creating Appointments for Patients
+
+You can schedule appointments on behalf of patients:
+
+1. Click **Assign Appointment**
+2. Select patient from dropdown (searchable)
+3. System shows patient information and checks:
+   - Patient must not have existing pending appointments
+   - Patient must be clinically eligible (active account)
+4. Select available date and time from calendar
+5. Choose appointment type:
+   - **First Visit** (primera_vez): Initial consultation
+   - **Follow-up** (seguimiento): Regular follow-up session
+   - **Control** (control): Check-up or monitoring session
+6. Enter consultation reason (optional)
+7. Add internal notes (optional)
+8. Set price (defaults to your consultation rate)
+9. Click **Create Appointment**
+
+Both you and the patient receive email confirmations.
+
+### Appointment Calendar View
+
+The calendar displays:
+
+- 4 weeks of availability starting from current week
+- Only days with available time slots
+- Slots marked as unavailable if already booked
+- Time displayed in 12-hour format (e.g., 9:00 AM)
+
+### Appointment Details
+
+Click any appointment to view:
+
+- Patient information and contact
+- Scheduled date and time
+- Appointment type and reason
+- Price
+- Status (pending, completed, etc.)
+- Clinical notes (if completed)
+- Medical measurements (if recorded)
+
+### Rescheduling Appointments
+
+To reschedule a pending appointment:
+
+1. Open the appointment details
+2. Click **Reschedule Appointment**
+3. Select new date and time from available slots
+4. Optionally add reason for rescheduling
+5. Click **Confirm Reschedule**
+
+The patient receives an automatic notification with:
+- Original appointment time
+- New appointment time
+- Reason for change (if provided)
+
+<Note>
+Only pending appointments can be rescheduled. Completed, cancelled, or expired appointments cannot be modified.
+</Note>
+
+### Cancelling Appointments
+
+To cancel an appointment:
+
+1. Open the appointment details
+2. Click **Cancel Appointment**
+3. Confirm the cancellation
+
+Automatic notifications are sent:
+- You receive immediate confirmation
+- Patient receives notification (with 20-second delay for development environments)
+
+<Warning>
+Only pending appointments can be cancelled. Consider rescheduling instead if possible.
+</Warning>
+
+## Conducting Consultations
+
+### Starting a Consultation
+
+1. From dashboard or appointment list, click on the appointment
+2. Click **Start Attention** button
+3. You'll be taken to the clinical data entry form
+
+### Recording Clinical Data
+
+During the consultation, record:
+
+**Basic Measurements**:
+- Weight (kg)
+- Height (cm)
+- BMI (auto-calculated)
+
+**Circumference Measurements**:
+- Waist (cm)
+- Hip (cm)
+- Neck (cm)
+- Wrist (cm)
+- Arm contracted (cm)
+- Arm relaxed (cm)
+- Thigh (cm)
+- Calf (cm)
+
+**Calculated Metrics**:
+- Body fat percentage
+- TMB (Basal Metabolic Rate)
+- TDEE (Total Daily Energy Expenditure)
+- WHR (Waist-to-Hip Ratio)
+- WHT (Waist-to-Height Ratio)
+- Target calories
+
+**Clinical Information**:
+- Medical history notes
+- Current symptoms or concerns
+- Dietary habits
+- Physical activity level
+- Sleep patterns
+- Goals and objectives
+
+**Nutrition Plan**:
+- Meal recommendations
+- Portion guidelines
+- Foods to include/avoid
+- Supplement recommendations
+- Hydration requirements
+
+**Follow-up Notes**:
+- Progress assessment
+- Next steps
+- Homework or assignments
+- Recommended follow-up date
+
+### Saving Clinical Records
+
+1. Fill in all required fields
+2. Review data for accuracy
+3. Click **Save Attention**
+4. Appointment automatically changes to "completed" status
+
+### Editing Clinical Records
+
+If you need to modify a record:
+
+1. Open the completed appointment
+2. Click **Edit Attention**
+3. Update the information
+4. Click **Update** to save changes
+
+<Tip>
+Save records immediately after consultation to ensure data accuracy and patient safety.
+</Tip>
+
+### Generating PDF Reports
+
+Create professional reports for patients:
+
+1. Open completed appointment
+2. Click **Download PDF** or **View PDF**
+3. PDF includes:
+   - Patient information
+   - Consultation date
+   - All measurements and metrics
+   - Clinical notes
+   - Nutrition plan
+   - Your signature and credentials
+
+## Schedule Conflicts
+
+The system automatically prevents:
+
+- Double-booking: Cannot book two appointments at same time
+- Past bookings: Cannot schedule appointments in the past
+- Overlapping slots: 45-minute slots cannot overlap
+
+### Resolving Conflicts
+
+If a patient reports a conflict:
+
+1. Check your appointment list for the time slot
+2. Verify the patient's appointment status
+3. Reschedule one appointment if needed
+4. Contact the patient to confirm new time
+
+## Best Practices
+
+### Schedule Management
+
+- Update your schedule at least one week in advance
+- Block out vacation time immediately
+- Keep consistent weekly hours for patient convenience
+- Leave buffer time between appointments for notes
+
+### Patient Communication
+
+- Review patient history before appointments
+- Send reminders for upcoming consultations
+- Follow up on missed appointments
+- Document all communication in notes
+
+### Clinical Records
+
+- Complete records immediately after consultation
+- Be thorough with measurements and observations
+- Set clear, measurable goals with patients
+- Document progress and setbacks objectively
+
+### Time Management
+
+- Start appointments on time
+- Keep consultations within 45-minute window
+- Schedule administrative tasks between appointments
+- Review next day's appointments each evening
+
+## Workflow Summary
+
+1. **Set up your schedule** with available time slots
+2. **Receive appointment bookings** from patients or create them yourself
+3. **Review patient information** before consultations
+4. **Conduct consultation** and record clinical data
+5. **Save attention records** to complete the appointment
+6. **Generate PDF reports** for patient records
+7. **Track patient progress** through history charts
+8. **Schedule follow-ups** as needed
+
+<Tip>
+Establish a consistent routine for reviewing appointments, updating schedules, and following up with patients.
+</Tip>
